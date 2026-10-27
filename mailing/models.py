@@ -42,5 +42,13 @@ class Message(models.Model):
     null=True,
     verbose_name='введите текст сообщения'
   )
+
+  class Meta:
+  verbose_name = 'Сообщение'
+  verbose_name_plural = 'Сообщения'
+  ordering = ['subject']
+
+  def __str__(self):
+  return self.subject
   
 
