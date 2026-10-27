@@ -40,7 +40,8 @@ class Message(models.Model):
   message = models.TextField(
     blank=True,
     null=True,
-    verbose_name='введите текст сообщения'
+    verbose_name='Сообщение',
+    help_text='введите текст сообщения'
   )
 
   class Meta:
