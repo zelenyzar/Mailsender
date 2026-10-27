@@ -22,13 +22,13 @@ class Client(models.Model):
     verbose_name='Комментарий'
   )
 
-class Meta:
-  verbose_name = 'Получатель рассылки'
-  verbose_name_plural = 'Получатели рассылки'
-  ordering = ['email']
+  class Meta:
+    verbose_name = 'Получатель рассылки'
+    verbose_name_plural = 'Получатели рассылки'
+    ordering = ['email']
 
-def __str__(self):
-  return self.email
+  def __str__(self):
+    return self.email
 
 class Message(models.Model):
   subject = models.CharField(
