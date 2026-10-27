@@ -1,5 +1,5 @@
 # from django.contrib import admin
-# from .models import Client, Message, Campaign
+# from .models import Client, Message, Mailing
 
 # @admin.register(Client)
 # class ClientAdmin(admin.ModelAdmin):
@@ -11,7 +11,7 @@
 #     list_display = ('subject',)
 #     search_fields = ('subject',)
 
-# @admin.register(Campaign)
-# class CampaignAdmin(admin.ModelAdmin):
+# @admin.register(Mailing)
+# class MailingAdmin(admin.ModelAdmin):
 #     list_display = ('pk', 'status', 'start_time', 'end_time')
 #     list_filter = ('status',)
