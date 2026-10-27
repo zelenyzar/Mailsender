@@ -24,7 +24,6 @@ class ClientDeleteView(DeleteView):
     model = Client
     success_url = reverse-lazy('mailing:client_list')
   
-Реализовать возможность добавлять, просматривать, редактировать и удалять сообщения.
 class MessageListView(ListView):
   model = Message
 
