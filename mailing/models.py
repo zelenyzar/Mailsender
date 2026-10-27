@@ -4,6 +4,7 @@ class Client(models.Model):
   email = models.EmailField(
     max_length=100,
     unique=True,
+    validators=[validate_email],
     verbose_name='Email',
     help_text='введите почту клиента'
   )
