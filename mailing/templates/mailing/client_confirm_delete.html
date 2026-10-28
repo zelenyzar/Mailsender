@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Удаление получателя{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-danger shadow-sm">
+            <div class="card-header bg-danger bg-gradient text-white">
+                <h4 class="mb-0"><i class="bi bi-exclamation-circle"></i> Подтверждение удаления</h4>
+            </div>
+            <div class="card-body text-center">
+                <p class="lead">Вы уверены, что хотите удалить получателя <strong>{{ object.email }}</strong>?</p>
+                <p class="text-muted small">Это действие нельзя отменить.</p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-lg">
+                        <i class="bi bi-check-lg"></i> Да, удалить
+                    </button>
+                    <a href="{% url 'mailing:client_detail' object.pk %}" class="btn btn-secondary btn-lg ms-2">Отмена</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
