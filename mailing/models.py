@@ -4,6 +4,8 @@ from django.core.validators import validate_email
 from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
+import smtplib
+from email.mime.text import MIMEText
 
 
 #-----Client----
@@ -154,36 +156,63 @@ class Mailing(models.Model):
         if not clients.exists():
             return False, ['В рассылке нет получателей']
         subject = self.message.subject
-        message = self.message.message
+        message = self.message.message or ''
         from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com')
-        for client in clients:
-            try:
-                send_mail(
-                    subject=subject,
-                    message=message,
-                    from_email=from_email,
-                    recipient_list=[client.email],
-                    fail_silently=False,
-                )
 
-                MailingAttempt.objects.create(
-                    mailing=self,
-                    client=client,
-                    status='Успешно',
-                    error_message=''
-                )
-            except Exception as e:
-                error_text = str(e)
-                MailingAttempt.objects.create(
-                    mailing=self,
-                    client=client,
-                    status='Не успешно',
-                    error_message=error_text
-                )
-                errors.append(f'{client.email}: {error_text}')
+        smtp_host = getattr(settings, 'EMAIL_HOST', 'localhost')
+        smtp_port = getattr(settings, 'EMAIL_PORT', 25)
+        smtp_user = getattr(settings, 'EMAIL_HOST_USER', '')
+        smtp_password = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+        use_tls = getattr(settings, 'EMAIL_USE_TLS', False)
+        timeout = getattr(settings, 'EMAIL_TIMEOUT', 10)
 
-        success = len(errors) == 0
-        return success, errors
+        try:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as server:
+                if use_tls:
+                    server.starttls()
+                if smtp_user and smtp_password:
+                    server.login(smtp_user, smtp_password)
+
+                for client in clients:
+                    msg = MIMEText(body, 'plain', 'utf-8')
+                    msg['Subject'] = subject
+                    msg['From'] = from_email
+                    msg['To'] = client.email
+                    try:
+                        # send_message возвращает dict: {email: (code, response_text)}
+                        response = server.send_message(msg)
+                        MailingAttempt.objects.create(
+                            mailing=self,
+                            client=client,
+                            status=MailingAttempt.STATUS_SUCCESS,
+                            error_message='',
+                            server_response=str(response),
+                        )
+                    except Exception as e:
+                        error_text = str(e)
+                        MailingAttempt.objects.create(
+                            mailing=self,
+                            client=client,
+                            status=MailingAttempt.STATUS_FAIL,
+                            error_message=error_text,
+                            server_response='',
+                        )
+                        errors.append(f'{client.email}: {error_text}')
+
+                success = len(errors) == 0
+                return success, errors
+
+            except smtplib.SMTPConnectError as e:
+                error_text = f'Не удалось подключиться к SMTP: {e}'
+                for client in clients:
+                    MailingAttempt.objects.create(
+                        mailing=self,
+                        client=client,
+                        status=MailingAttempt.STATUS_FAIL,
+                        error_message=error_text,
+                        server_response='',
+                    )
+                return False, [error_text]
 
 class MailingAttempt(models.Model):
     """Модель для хранения истории попыток отправки"""
