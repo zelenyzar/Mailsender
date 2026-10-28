@@ -223,6 +223,13 @@ class MailingAttempt(models.Model):
         verbose_name='Дата отправки'
     )
 
+    server_response = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Ответ почтового сервера',
+        help_text='Код и текст ответа SMTP'
+    )
+
     class Meta:
         verbose_name = 'Попытка рассылки'
         verbose_name_plural = 'Попытки рассылки'
