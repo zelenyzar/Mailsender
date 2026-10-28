@@ -2,6 +2,7 @@ from django.contrib.messages import success
 from django.urls import reverse_lazy
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
+from django.utils import timezone
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
@@ -83,6 +84,12 @@ class MailingCreateView(CreateView):
         self.obj.update_status()
         return response
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['messages_list'] = Message.objects.all()
+        context['clients_list'] = Client.objects.all()
+        return context
+
 
 class MailingUpdateView(UpdateView):
     model = Mailing
@@ -93,6 +100,12 @@ class MailingUpdateView(UpdateView):
         response = super().form_valid(form)
         self.obj.update_status()
         return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['messages_list'] = Message.objects.all()
+        context['clients_list'] = Client.objects.all()
+        return context
 
 
 class MailingDeleteView(DeleteView):
@@ -111,3 +124,23 @@ def mailing_send(request, pk):
             messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
         return redirect('mailing:mailing_detail', pk=mailing.pk)
     return redirect('mailing:mailing_detail', pk=mailing.pk)
+
+# --- Mailing ---
+def dashboard(request):
+    now = timezone.now()
+    total_mailings = Mailing.objects.count()
+    active_mailings = (
+        Mailling.objects
+        .filter(status=Mailing.STATUS_RUNNING)
+        .filter(start_time__lte=now, end_time__gte=now)
+        .count()
+    )
+
+    unique_recipients = Client.objects.count()
+
+    context = {
+        'total_mailing': total_mailings,
+        'active_mailings': active_mailings,
+        'unique_recipients': unique_recipients,
+    }
+    return render(render(request, 'mailing/dashboard.html', context)
