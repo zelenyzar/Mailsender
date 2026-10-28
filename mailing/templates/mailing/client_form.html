@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Редактировать получателя{% else %}Добавить получателя{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h4 class="mb-0">{% if object %}Редактировать{% else %}Создать{% endif %} получателя</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    
+                    <div class="mb-3">
+                        {{ form.email.label_tag }}
+                        <input type="email" name="{{ form.email.name }}" value="{{ form.email.value|default:'' }}" class="form-control {% if form.email.errors %}is-invalid{% endif %}" required>
+                        {% if form.email.errors %}<div class="invalid-feedback">{{ form.email.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.full_name.label_tag }}
+                        <input type="text" name="{{ form.full_name.name }}" value="{{ form.full_name.value|default:'' }}" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.comment.label_tag }}
+                        <textarea name="{{ form.comment.name }}" class="form-control">{{ form.comment.value|default:"" }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">{% if object %}Сохранить изменения{% else %}Создать получателя{% endif %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
