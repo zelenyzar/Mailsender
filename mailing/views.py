@@ -84,6 +84,12 @@ class MailingCreateView(CreateView):
         self.obj.update_status()
         return response
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['messages_list'] = Message.objects.all()
+        context['clients_list'] = Client.objects.all()
+        return context
+
 
 class MailingUpdateView(UpdateView):
     model = Mailing
@@ -94,6 +100,12 @@ class MailingUpdateView(UpdateView):
         response = super().form_valid(form)
         self.obj.update_status()
         return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['messages_list'] = Message.objects.all()
+        context['clients_list'] = Client.objects.all()
+        return context
 
 
 class MailingDeleteView(DeleteView):
