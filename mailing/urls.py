@@ -16,7 +16,8 @@ from .views import (
   MailingCreateView,
   MailingUpdateView,
   MailingDeleteView,
-  mailing_send
+  mailing_send,
+  dashboard
 )
 
 app_name = MailingConfig.name
