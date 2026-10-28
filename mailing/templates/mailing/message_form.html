@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Изменить сообщение{% else %}Новое сообщение{% endif %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header"><h4>{% if object %}Редактирование{% else %}Создание{% endif %} сообщения</h4></div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Тема</label>
+                        <input type="text" name="subject" value="{{ object.subject|default:'' }}" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Текст сообщения</label>
+                        <textarea name="message" class="form-control" rows="6">{{ object.message|default:'' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Сохранить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
