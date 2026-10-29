@@ -47,4 +47,7 @@ urlpatterns = [
 
     # --- Dashboard ---
   path('', dashboard, name='dashboard'),
+
+    # --- Statistics ---
+  path('statistics/', statistics_report, name='statistics'),
 ]
