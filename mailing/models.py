@@ -74,10 +74,8 @@ class Mailing(models.Model):
         return f'Рассылка #{self.pk} ({self.status})'
 
     def clean(self):
-        now = timezone.now()
-        def clean(self):
-            if self.start_time and self.end_time and self.start_time >= self.end_time:
-                raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
+            raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
             
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

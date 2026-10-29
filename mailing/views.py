@@ -20,13 +20,13 @@ class ClientDetailView(DetailView):
 
 class ClientCreateView(CreateView):
     model = Client
-    fields = ('email', 'full_name', 'comment')
+    form_class = ClientForm
     success_url = reverse_lazy('mailing:client_list')
 
 
 class ClientUpdateView(UpdateView):
     model = Client
-    fields = ('email', 'full_name', 'comment')
+    form_class = ClientForm
     success_url = reverse_lazy('mailing:client_list')
 
 
@@ -46,13 +46,13 @@ class MessageDetailView(DetailView):
 
 class MessageCreateView(CreateView):
     model = Message
-    fields = ('subject', 'message')
+    form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
 
 
 class MessageUpdateView(UpdateView):
     model = Message
-    fields = ('subject', 'message')
+    form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
 
 
@@ -95,7 +95,7 @@ class MailingDetailView(DetailView):
 
 class MailingCreateView(CreateView):
     model = Mailing
-    form_class = MaiingForm
+    form_class = MailingForm
     success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
@@ -113,7 +113,7 @@ class MailingCreateView(CreateView):
 
 class MailingUpdateView(UpdateView):
     model = Mailing
-    form_class = MaiingForm
+    form_class = MailingForm
     success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):

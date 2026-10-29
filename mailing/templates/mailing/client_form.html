@@ -13,24 +13,30 @@
                 <form method="post">
                     {% csrf_token %}
                     {{ form.non_field_errors }}
-                    
                     <div class="mb-3">
-                        {{ form.email.label_tag }}
-                        <input type="email" name="{{ form.email.name }}" value="{{ form.email.value|default:'' }}" class="form-control {% if form.email.errors %}is-invalid{% endif %}" required>
-                        {% if form.email.errors %}<div class="invalid-feedback">{{ form.email.errors }}</div>{% endif %}
+                        <label class="form-label">Email</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="text-danger">{{ form.email.errors.0 }}</div>
+                        {% endif %}
                     </div>
-
                     <div class="mb-3">
-                        {{ form.full_name.label_tag }}
-                        <input type="text" name="{{ form.full_name.name }}" value="{{ form.full_name.value|default:'' }}" class="form-control">
+                        <label class="form-label">Ф.И.О.</label>
+                        {{ form.full_name }}
+                        {% if form.full_name.errors %}
+                            <div class="text-danger">{{ form.full_name.errors.0 }}</div>
+                        {% endif %}
                     </div>
-
                     <div class="mb-3">
-                        {{ form.comment.label_tag }}
-                        <textarea name="{{ form.comment.name }}" class="form-control">{{ form.comment.value|default:"" }}</textarea>
+                        <label class="form-label">Комментарий</label>
+                        {{ form.comment }}
+                        {% if form.comment.errors %}
+                            <div class="text-danger">{{ form.comment.errors.0 }}</div>
+                        {% endif %}
                     </div>
-
-                    <button type="submit" class="btn btn-primary w-100">{% if object %}Сохранить изменения{% else %}Создать получателя{% endif %}</button>
+                    <button type="submit" class="btn btn-primary w-100">
+                        {% if object %}Сохранить изменения{% else %}Создать получателя{% endif %}
+                    </button>
                 </form>
             </div>
         </div>
