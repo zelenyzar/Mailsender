@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <div class="card shadow-sm p-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">Вход в систему</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <!-- Для кастомной модели нужно поле email, а не username -->
+                        <input type="email" name="username" class="form-control" placeholder="your@example.com" required>
+                        {% comment %}Примечание: Django LoginView по умолчанию ожидает поле 'username'. 
+                        Так как мы используем кастомную модель с USERNAME_FIELD='email', 
+                        нам нужно либо переопределить форму, либо использовать хак с именем поля.
+                        Самый простой способ без создания новой формы - использовать виджет в urls или переопределить view.
+                        Но проще всего создать простую форму в forms.py или использовать этот шаблон с небольшим JS/CSS трюком, 
+                        либо (лучше) создать свой LoginView.
+                        
+                        ОДНАКО, стандартный LoginView использует поле 'username'. 
+                        Чтобы он работал с email, нам нужно передать свою форму.
+                        Смотрите шаг 4 (forms.py) для правильной формы входа.
+                        {% endcomment %}
+                        <!-- Ниже исправленный вариант для стандартного LoginView, если мы не меняем форму -->
+                        <!-- Если вы используете стандартный LoginView, он ждет 'username'. 
+                             Но наша модель ждет 'email'. 
+                             Поэтому стандартный LoginView НЕ сработает напрямую с email.
+                             Нужно создать кастомный View или Form. -->
+                         
+                        <!-- ВАРИАНТ ДЛЯ КАСТОМНОГО VIEW (рекомендуется) -->
+                        <input type="email" name="email" class="form-control" placeholder="your@example.com" required id="id_email">
+                        <small class="text-muted">Используйте ваш email в качестве логина</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Пароль</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Войти</button>
+                </form>
+                <hr>
+                <p class="text-center small">
+                    Нет аккаунта? <a href="{% url 'user:register' %}">Зарегистрироваться</a> | 
+                    <a href="{% url 'user:password_reset' %}">Забыли пароль?</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
