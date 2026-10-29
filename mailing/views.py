@@ -168,31 +168,43 @@ def dashboard(request):
 def statistics_report(request):
     """
     Собирает и отображает статистику по рассылкам и попыткам отправки.
-    Безопасен для случая, когда в БД ещё нет записей.
+    Обычный пользователь видит статистику только по своим рассылкам.
+    Менеджер видит общую статистику по системе.
     """
     now = timezone.now()
+    user = request.user
 
-    # 1. Общая статистика рассылок
-    total_mailings = Mailing.objects.count()
-    active_mailings = Mailing.objects.filter(start_time__lte=now, end_time__gte=now).count()
-    completed_mailings = Mailing.objects.filter(end_time__lt=now).count()
+    # 1. Определяем, какой QuerySet использовать
+    if is_manager(user):
+        # Менеджер: видит всё
+        mailings_qs = Mailing.objects.all()
+        attempts_qs = MailingAttempt.objects.all()
+    else:
+        # Обычный пользователь: только свои рассылки и попытки
+        mailings_qs = Mailing.objects.filter(owner=user)
+        attempts_qs = MailingAttempt.objects.filter(mailing__owner=user)
 
-    # 2. Агрегация попыток отправки
-    stats = MailingAttempt.objects.aggregate(
+    # 2. Общая статистика рассылок (уже отфильтрована по правам)
+    total_mailings = mailings_qs.count()
+    active_mailings = mailings_qs.filter(start_time__lte=now, end_time__gte=now).count()
+    completed_mailings = mailings_qs.filter(end_time__lt=now).count()
+
+    # 3. Агрегация попыток отправки
+    stats = attempts_qs.aggregate(
         total_attempts=Count('id'),
         success_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_SUCCESS)),
         fail_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_FAIL))
     )
 
-    total = stats['total_attempts']
-    success = stats['success_attempts']
+    total = stats['total_attempts'] or 0
+    success = stats['success_attempts'] or 0
 
     # Расчёт процентов (защита от деления на ноль)
     success_rate = (success / total * 100) if total > 0 else 0.0
     fail_rate = 100.0 - success_rate
 
-    # 3. Последние ошибки (оптимизировано: select_related для ForeignKey, prefetch_related не нужен для такой выборки)
-    recent_errors = MailingAttempt.objects.filter(
+    # 4. Последние ошибки (тоже фильтруются по правам)
+    recent_errors = attempts_qs.filter(
         status=MailingAttempt.STATUS_FAIL
     ).select_related('mailing', 'client').order_by('-sent_at')[:10]
 
@@ -204,9 +216,19 @@ def statistics_report(request):
         'stats': stats,
         'recent_errors': recent_errors,
 
-        # Готовые проценты для шаблона (не нужно считать в HTML)
+        # Готовые проценты для шаблона
         'success_rate': success_rate,
         'fail_rate': fail_rate,
     }
 
     return render(request, 'mailing/statistics_report.html', context)
+Что важно проверить, чтобы это работало
+Файл mixins.py должен существовать в папке mailing и содержать функцию is_manager:
+python
+# mailing/mixins.py
+def is_manager(user):
+    # Вариант с группой 'manager' (рекомендуется)
+    return user.groups.filter(name='manager').exists()
+    
+    # Если хочешь использовать флаг is_staff вместо групп, раскомментируй строку ниже и закомментируй верхнюю:
+    # return user.is_staff
