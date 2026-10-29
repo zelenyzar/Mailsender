@@ -17,11 +17,26 @@
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
+        
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
+                <!-- Основные пункты меню (видны всем) -->
                 <li class="nav-item"><a class="nav-link" href="{% url 'mailing:client_list' %}">Получатели</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'mailing:message_list' %}">Сообщения</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'mailing:mailing_list' %}">Рассылки</a></li>
+
+                <!-- Блок авторизации (меняется в зависимости от статуса) -->
+                <li class="nav-item ms-3 d-flex align-items-center">
+                    {% if user.is_authenticated %}
+                        <!-- Для авторизованного пользователя -->
+                        <span class="me-2 text-white fw-normal small">Привет, {{ user.email }}</span>
+                        <a href="{% url 'user:logout' %}" class="btn btn-sm btn-outline-light">Выйти</a>
+                    {% else %}
+                        <!-- Для гостя -->
+                        <a href="{% url 'user:login' %}" class="btn btn-sm btn-outline-light me-2">Войти</a>
+                        <a href="{% url 'user:register' %}" class="btn btn-sm btn-light text-primary">Регистрация</a>
+                    {% endif %}
+                </li>
             </ul>
         </div>
     </div>
