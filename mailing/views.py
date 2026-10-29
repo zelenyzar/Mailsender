@@ -170,23 +170,30 @@ def dashboard(request):
 def statistics_report(request):
     """
     Собирает и отображает статистику по рассылкам и попыткам отправки.
+    Безопасен для случая, когда в БД ещё нет записей.
     """
     now = timezone.now()
-    
+
     # 1. Общая статистика рассылок
     total_mailings = Mailing.objects.count()
     active_mailings = Mailing.objects.filter(start_time__lte=now, end_time__gte=now).count()
     completed_mailings = Mailing.objects.filter(end_time__lt=now).count()
 
-    # 2. Агрегация попыток отправки (Статистика)
-    # Используем аннотации для подсчета групп
+    # 2. Агрегация попыток отправки
     stats = MailingAttempt.objects.aggregate(
         total_attempts=Count('id'),
         success_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_SUCCESS)),
         fail_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_FAIL))
     )
 
-    # Получаем детализацию по последним неудачным попыткам (для таблицы ошибок)
+    total = stats['total_attempts']
+    success = stats['success_attempts']
+
+    # Расчёт процентов (защита от деления на ноль)
+    success_rate = (success / total * 100) if total > 0 else 0.0
+    fail_rate = 100.0 - success_rate
+
+    # 3. Последние ошибки (оптимизировано: select_related для ForeignKey, prefetch_related не нужен для такой выборки)
     recent_errors = MailingAttempt.objects.filter(
         status=MailingAttempt.STATUS_FAIL
     ).select_related('mailing', 'client').order_by('-sent_at')[:10]
@@ -195,12 +202,13 @@ def statistics_report(request):
         'total_mailings': total_mailings,
         'active_mailings': active_mailings,
         'completed_mailings': completed_mailings,
-        
+
         'stats': stats,
         'recent_errors': recent_errors,
-        
-        # Данные для графиков (опционально, можно использовать в JS)
-        'success_rate': (stats['success_attempts'] / stats['total_attempts'] * 100) if stats['total_attempts'] > 0 else 0,
+
+        # Готовые проценты для шаблона (не нужно считать в HTML)
+        'success_rate': success_rate,
+        'fail_rate': fail_rate,
     }
 
     return render(request, 'mailing/statistics_report.html', context)
