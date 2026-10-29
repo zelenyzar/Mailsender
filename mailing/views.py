@@ -11,9 +11,8 @@ from mailing.models import Client, Message, Mailing, MailingAttempt
 
 
 # --- Clients ---
-class ClientListView(ListView):
+class ClientListView(OwnerOrManagerMixin, ListView):
     model = Client
-
 
 class ClientDetailView(DetailView):
     model = Client
@@ -22,18 +21,20 @@ class ClientDetailView(DetailView):
 class ClientCreateView(CreateView):
     model = Client
     form_class = ClientForm
-    success_url = reverse_lazy('mailing:client_list')
+
+    def form_valid(self, form):
+        form.instance.owner = self.request.user
+        return super().form_valid(form)
 
 
-class ClientUpdateView(UpdateView):
+class ClientUpdateView(OwnerCheckMixin, UpdateView):
     model = Client
     form_class = ClientForm
-    success_url = reverse_lazy('mailing:client_list')
 
 
-class ClientDeleteView(DeleteView):
+class ClientDeleteView(OwnerCheckMixin, DeleteView):
     model = Client
-    success_url = reverse_lazy('mailing:client_list')
+    success_url = '/clients/'
 
 
 # --- Message ---
@@ -63,7 +64,7 @@ class MessageDeleteView(DeleteView):
 
 
 # --- Mailing ---
-class MailingListView(ListView):
+class MailingListView(OwnerOrManagerMixin, ListView):
     model = Mailing
 
 
@@ -97,12 +98,10 @@ class MailingDetailView(DetailView):
 class MailingCreateView(CreateView):
     model = Mailing
     form_class = MailingForm
-    success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        self.object.update_status()
-        return response
+        form.instance.owner = self.request.user
+        return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -112,10 +111,9 @@ class MailingCreateView(CreateView):
         return context
 
 
-class MailingUpdateView(UpdateView):
+class MailingUpdateView(OwnerCheckMixin, UpdateView):
     model = Mailing
     form_class = MailingForm
-    success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -134,9 +132,9 @@ class MailingUpdateView(UpdateView):
         return context
 
 
-class MailingDeleteView(DeleteView):
+class MailingDeleteView(OwnerCheckMixin, DeleteView):
     model = Mailing
-    success_url = reverse_lazy('mailing:mailing_list')
+    success_url = '/mailings/'
 
 
 def mailing_send(request, pk):
