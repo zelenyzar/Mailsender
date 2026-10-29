@@ -153,3 +153,36 @@ def password_reset_confirm(request, uidb64, token):
     else:
         messages.error(request, 'Ссылка для сброса пароля недействительна или устарела.')
         return redirect('password_reset')
+
+def toggle_user_active(request, user_id):
+    """
+    Переключает статус is_active у пользователя.
+    Доступно только менеджерам.
+    """
+    # 1. Проверка прав: только менеджер
+    if not is_manager(request.user):
+        return HttpResponseForbidden("У вас нет прав для управления пользователями.")
+
+    # 2. Получаем пользователя
+    target_user = get_object_or_404(User, pk=user_id)
+
+    # Защита: менеджер не может заблокировать самого себя (опционально, но полезно)
+    if target_user.id == request.user.id:
+        messages.warning(request, "Вы не можете заблокировать сами себя.")
+        return redirect('user:user_list')  # Замени на свой URL списка пользователей
+
+    # 3. Переключаем статус
+    target_user.is_active = not target_user.is_active
+    target_user.save()
+
+    # 4. Сообщение пользователю
+    if target_user.is_active:
+        msg = f"Пользователь {target_user.email} успешно разблокирован."
+        level = messages.SUCCESS
+    else:
+        msg = f"Пользователь {target_user.email} заблокирован. Доступ к системе прекращен."
+        level = messages.WARNING
+
+    messages.add_message(request, level, msg)
+
+    return redirect('user:user_list')
