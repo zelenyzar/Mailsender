@@ -30,10 +30,9 @@
                         <label class="form-label">Получатели (выберите всех нужных)</label>
                         <select multiple name="recipients" class="form-select" size="8" required>
                             {% for client in clients_list %}
-                                <option value="{{ client.id }}"
-                                        {% if object and client.id in object.recipients.values_list('id', flat=True) %}selected{% endif %}>
-                                    {{ client.email }} {% if client.full_name %}({{ client.full_name }}){% endif %}
-                                </option>
+                            <option value="{{ client.id }}" {% if object and client.id in recipient_ids %}selected{% endif %}>
+                                {{ client.email }} {% if client.full_name %}({{ client.full_name }}){% endif %}
+                            </option>
                             {% endfor %}
                         </select>
                         <small class="text-muted">Зажмите Ctrl/Cmd, чтобы выбрать несколько.</small>
