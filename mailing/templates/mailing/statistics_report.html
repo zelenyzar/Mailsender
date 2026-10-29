@@ -51,6 +51,7 @@
 <hr class="my-4">
 
 <!-- Детальная таблица статистики -->
+<!-- Детальная таблица статистики -->
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>Детализация по попыткам</h3>
 </div>
@@ -67,22 +68,14 @@
             <tr>
                 <td><strong>Успешно</strong></td>
                 <td>{{ stats.success_attempts }}</td>
-                <td class="text-success">
-                    {% if stats.total_attempts > 0 %}
-                        {{ success_rate|floatformat:1 }}%
-                    {% else %}
-                        0%
-                    {% endif %}
-                </td>
+                <!-- Используем переданную из view переменную -->
+                <td class="text-success">{{ success_rate|floatformat:1 }}%</td>
             </tr>
             <tr>
                 <td><strong class="text-danger">Не успешно</strong></td>
                 <td>{{ stats.fail_attempts }}</td>
-                <td class="text-danger">
-                    {% with fail_rate=100|sub:success_rate %}
-                        {{ fail_rate|floatformat:1 }}%
-                    {% endwith %}
-                </td>
+                <!-- ИСПРАВЛЕНО: используем готовую переменную fail_rate из контекста -->
+                <td class="text-danger">{{ fail_rate|floatformat:1 }}%</td>
             </tr>
             <tr class="fw-bold">
                 <td>ВСЕГО ПОПЫТОК</td>
@@ -93,7 +86,6 @@
     </table>
 </div>
 
-<hr class="my-4">
 
 <!-- Таблица последних ошибок (для анализа проблем) -->
 <div class="d-flex justify-content-between align-items-center mb-3">
