@@ -1,9 +1,13 @@
+# config/urls.py
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
-  path('admin/', admin.site.urls),
-  path('accounts/', include('user.urls', namespace='user')),
+    path('admin/', admin.site.urls),
+    path('', include('mailing.urls', namespace='mailing')),
+    path('accounts/', include('user.urls', namespace='user')), # <-- Добавь эту строку
 ]
 
 if settings.DEBUG:
