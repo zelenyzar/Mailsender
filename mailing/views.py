@@ -95,7 +95,7 @@ class MailingDetailView(DetailView):
 
 class MailingCreateView(CreateView):
     model = Mailing
-    form_class = MaiingForm
+    form_class = MailingForm
     success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
@@ -113,7 +113,7 @@ class MailingCreateView(CreateView):
 
 class MailingUpdateView(UpdateView):
     model = Mailing
-    form_class = MaiingForm
+    form_class = MailingForm
     success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
