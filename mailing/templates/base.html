@@ -1,3 +1,23 @@
+<!-- python manage.py shell
+
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+
+User = get_user_model()
+
+# 1. Создаем группу "manager", если её нет
+group, created = Group.objects.get_or_create(name='manager')
+
+# 2. Находим своего тестового пользователя
+user = User.objects.get(email='test@example.com') # <-- Вставь сюда свой email
+
+# 3. Добавляем его в группу
+user.groups.add(group)
+user.save()
+
+print(f"Пользователь {user.email} теперь менеджер!") -->
+
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
