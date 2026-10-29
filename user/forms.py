@@ -1,9 +1,9 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth.models import User
-
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from user.models import User
-
 
 class StyleFormMixin:
     base_control_class = "form-control shadow-sm"
@@ -19,96 +19,70 @@ class StyleFormMixin:
             widget = field.widget
             field_type = widget.input_type
 
-            base_attrs = {
-                "autocomplete": "off",  # можно оставить, но для password лучше new-password
-            }
+            base_attrs = {"autocomplete": "off"}
 
             if field_type == "file":
-                widget.attrs.update({
-                    **base_attrs,
-                    "class": self.file_input_class,
-                    "accept": "image/*",
-                })
+                widget.attrs.update({**base_attrs, "class": self.file_input_class, "accept": "image/*"})
             elif isinstance(widget, forms.Textarea):
-                widget.attrs.update({
-                    **base_attrs,
-                    "class": f"{self.base_control_class} rows=4",
-                    "placeholder": "Введите текст",
-                })
+                widget.attrs.update({**base_attrs, "class": f"{self.base_control_class} rows=4"})
             elif isinstance(widget, forms.NumberInput):
-                widget.attrs.update({
-                    **base_attrs,
-                    "class": f"{self.base_control_class} text-start",
-                    "step": "1",
-                    "min": "0",
-                    "placeholder": "0",
-                })
+                widget.attrs.update({**base_attrs, "class": f"{self.base_control_class} text-start", "step": "1", "min": "0"})
             elif isinstance(widget, forms.Select):
-                widget.attrs.update({
-                    **base_attrs,
-                    "class": self.select_class,
-                })
+                widget.attrs.update({**base_attrs, "class": self.select_class})
             else:
-                widget.attrs.update({
-                    **base_attrs,
-                    "class": self.base_control_class,
-                    "placeholder": "Введите значение",
-                })
+                widget.attrs.update({**base_attrs, "class": self.base_control_class})
 
             placeholders = {
                 "email": "your@example.com",
                 "password1": "Придумайте надёжный пароль",
                 "password2": "Повторите пароль",
+                "new_password1": "Новый пароль",
+                "new_password2": "Повторите новый пароль",
             }
             if name in placeholders:
                 field.widget.attrs["placeholder"] = placeholders[name]
 
-            if name in ("password1", "password2"):
+            if name in ("password1", "password2", "new_password1", "new_password2"):
                 field.widget.attrs["autocomplete"] = "new-password"
 
+# Форма регистрации
+class UserRegisterForm(StyleFormMixin, UserCreationForm):
+    email = forms.EmailField(required=True, label="Email")
 
-
-class UserRegisterForm(StyleFormMixin,UserCreationForm):
-    class Meta:
+    class Meta(UserCreationForm.Meta):
         model = User
         fields = ('email', 'password1', 'password2')
 
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        if commit:
+            user.is_active = False  # Деактивируем до подтверждения почты
+            user.save()
+        return user
 
-# НОВАЯ ФОРМА ДЛЯ ВХОДА
+# Форма входа (переопределяем поле username на email)
 class CustomLoginForm(StyleFormMixin, AuthenticationForm):
-    username = forms.EmailField(
-        label="Email",
-        widget=forms.EmailInput(attrs={'autofocus': True, 'class': 'form-control'})
-    )
-    password = forms.CharField(
-        label="Пароль",
-        strip=False,
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
-    )
+    username = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={'autofocus': True}))
+    password = forms.CharField(label="Пароль", strip=False, widget=forms.PasswordInput())
 
-    def clean(self):
-        cleaned_data = super().clean()
-        email = cleaned_data.get('username') # В стандартной форме поле называется username
-        password = cleaned_data.get('password')
-        
-        if email and password:
-            self.user_cache = Users.objects.filter(email=email).first()
-            if not self.user_cache or not self.user_cache.check_password(password):
-                raise forms.ValidationError("Неверный логин или пароль.")
-            elif not self.user_cache.is_active:
-                raise forms.ValidationError("Аккаунт не подтвержден. Проверьте почту.")
-        return cleaned_data
+    error_messages = {
+        'invalid_login': "Неверный логин или пароль.",
+        'inactive': "Аккаунт не подтвержден. Проверьте почту.",
+    }
 
+# Форма сброса пароля (стандартная, но с кастомным поиском по email)
+class CustomPasswordResetForm(StyleFormMixin, PasswordResetForm):
+    email = forms.EmailField(label='Email', max_length=254)
 
-# class EmailRegistrationForm(UserCreationForm):
-#     email = forms.EmailField(required=True, label="Email")
+    def get_users(self, email):
+        """Возвращает активных пользователей с указанным email."""
+        active_users = User._default_manager.filter(
+            email__iexact=email,
+            is_active=True
+        )
+        return active_users
 
-#     class Meta:
-#         model = User
-#         fields = ('email', 'password1', 'password2')
-
-#     def save(self, commit=True):
-#         user = super().save(commit=False)
-#         if commit:
-#             user.save()
-#         return user
+# Форма установки нового пароля
+class CustomSetPasswordForm(StyleFormMixin, SetPasswordForm):
+    pass

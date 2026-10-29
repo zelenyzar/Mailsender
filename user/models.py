@@ -1,22 +1,31 @@
-from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
+import uuid
 
 class User(AbstractUser):
-    username = None
+    """
+    Кастомная модель пользователя.
+    Используем email как логин.
+    """
     email = models.EmailField(unique=True, verbose_name='Email')
+    
+    # Поле для токена подтверждения регистрации
+    verification_token = models.CharField(max_length=32, null=True, blank=True)
+    
+    # Дата истечения токена
+    token_expires_at = models.DateTimeField(null=True, blank=True)
 
-    phone = models.CharField(max_length=35, verbose_name='Телефон', blank=True, null=True, help_text='Введите номер телефона')
-    country = models.CharField(max_length=56,verbose_name='Страна', blank=True, null=True, help_text='Введите страну')
-    avatar = models.ImageField(upload_to='user/avatar/',verbose_name='Аватар', blank=True, null=True, help_text='Загрузите свой аватар')
-
-    token = models.CharField(max_length=100, blank=True, null=True, verbose_name='Token')
-
+    # Переопределяем username, чтобы он не был обязательным для формы, 
+    # но оставался в базе данных для совместимости с Django Auth
+    username = None 
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
+
+    def __str__(self):
+        return self.email
 
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
-
-    def __str__(self):
-        return self.email
