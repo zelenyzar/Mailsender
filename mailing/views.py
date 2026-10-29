@@ -159,7 +159,7 @@ def dashboard(request):
         end_time__gte=now
     ).count()
     context = {
-        'total_mailing': total_mailings,
+        'total_mailings': total_mailings,
         'active_mailings': active_mailings,
         'unique_recipients': unique_recipients,
     }
