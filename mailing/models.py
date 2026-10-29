@@ -116,11 +116,7 @@ class Mailing(models.Model):
         return f'Рассылка #{self.pk} ({self.status})'
 
     def clean(self):
-        """Валидация на уровне модели"""
-        now = timezone.now()
-        if self.start_time and self.start_time < now:
-            raise ValidationError({'start_time': 'Дата начала не может быть в прошлом.'})
-        if self.start_time and self.end_time and self.start_time >=self.end_time:
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
             raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
 
     def update_status(self):
