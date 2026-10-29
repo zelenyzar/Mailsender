@@ -232,3 +232,13 @@ def is_manager(user):
     
     # Если хочешь использовать флаг is_staff вместо групп, раскомментируй строку ниже и закомментируй верхнюю:
     # return user.is_staff
+
+def block_mailing(request, pk):
+    if not is_manager(request.user):
+        return HttpResponseForbidden("Доступ запрещен")
+    
+    mailing = get_object_or_404(Mailing, pk=pk)
+    mailing.status = Mailing.STATUS_BLOCKED
+    mailing.save()
+    return redirect('mailing:mailing_list')
+    
