@@ -4,6 +4,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.utils import timezone
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from .forms import MailingForm
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
 
@@ -94,7 +95,7 @@ class MailingDetailView(DetailView):
 
 class MailingCreateView(CreateView):
     model = Mailing
-    fields = ('start_time', 'end_time', 'message', 'recipients')
+    form_class = MaiingForm
     success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
@@ -112,7 +113,7 @@ class MailingCreateView(CreateView):
 
 class MailingUpdateView(UpdateView):
     model = Mailing
-    fields = ('start_time', 'end_time', 'message', 'recipients')
+    form_class = MaiingForm
     success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
@@ -149,7 +150,7 @@ def mailing_send(request, pk):
         return redirect('mailing:mailing_detail', pk=mailing.pk)
     return redirect('mailing:mailing_detail', pk=mailing.pk)
 
-# --- Mailing ---
+# --- Dashboard ---
 def dashboard(request):
     now = timezone.now()
     total_mailings = Mailing.objects.count()
