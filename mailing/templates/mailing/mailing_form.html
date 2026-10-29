@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Редактировать рассылку{% else %}Создать рассылку{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h4 class="mb-0">{% if object %}Редактирование{% else %}Создание{% endif %} рассылки</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Сообщение -->
+                    <div class="mb-3">
+                        <label class="form-label">Сообщение (тема и текст)</label>
+                        <select name="message" class="form-select" required>
+                            {% for msg in messages_list %}
+                                <option value="{{ msg.id }}" {% if object and object.message.id == msg.id %}selected{% endif %}>
+                                    #{{ msg.id }} — {{ msg.subject }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Получатели -->
+                    <div class="mb-3">
+                        <label class="form-label">Получатели (выберите всех нужных)</label>
+                        <select multiple name="recipients" class="form-select" size="8" required>
+                            {% for client in clients_list %}
+                            <option value="{{ client.id }}" {% if object and client.id in recipient_ids %}selected{% endif %}>
+                                {{ client.email }} {% if client.full_name %}({{ client.full_name }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Зажмите Ctrl/Cmd, чтобы выбрать несколько.</small>
+                    </div>
+
+                    <!-- Время начала -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Дата и время начала</label>
+                            <input type="datetime-local" name="start_time" value="{{ object.start_time|date:'Y-m-d\TH:i' }}" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Дата и время окончания</label>
+                            <input type="datetime-local" name="end_time" value="{{ object.end_time|date:'Y-m-d\TH:i' }}" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">{% if object %}Сохранить изменения{% else %}Создать рассылку{% endif %}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
