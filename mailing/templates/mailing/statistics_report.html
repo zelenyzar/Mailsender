@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+{% extends "base.html" %}
+
+{% block title %}Статистика рассылок{% endblock %}
+
+{% block content %}
+<h1 class="mb-4 fw-bold">Статистика и отчеты</h1>
+
+<!-- Карточки с основными метриками -->
+<div class="row mb-5">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary h-100 shadow-sm d-flex align-items-center justify-content-center">
+            <div class="text-center">
+                <h3 class="mb-1">{{ total_mailings }}</h3>
+                <p class="mb-0 small">Всего рассылок</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success h-100 shadow-sm d-flex align-items-center justify-content-center">
+            <div class="text-center">
+                <h3 class="mb-1">{{ stats.success_attempts }}</h3>
+                <p class="mb-0 small">Успешных отправок</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger h-100 shadow-sm d-flex align-items-center justify-content-center">
+            <div class="text-center">
+                <h3 class="mb-1">{{ stats.fail_attempts }}</h3>
+                <p class="mb-0 small">Ошибок отправки</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100 shadow-sm p-3">
+            <h6 class="text-muted mb-2">Общий процент успеха</h6>
+            <div class="progress mb-2" style="height: 10px;">
+                <div class="progress-bar bg-success" role="progressbar" 
+                     style="width: {{ success_rate }}%" 
+                     aria-valuenow="{{ success_rate }}" 
+                     aria-valuemin="0" aria-valuemax="100">
+                    {{ success_rate|floatformat:1 }}%
+                </div>
+            </div>
+            <small class="text-muted">Из {{ stats.total_attempts }} попыток</small>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Детальная таблица статистики -->
+<!-- Детальная таблица статистики -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Детализация по попыткам</h3>
+</div>
+<div class="table-responsive bg-white shadow-sm rounded p-3">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Тип события</th>
+                <th>Количество</th>
+                <th>Доля (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Успешно</strong></td>
+                <td>{{ stats.success_attempts }}</td>
+                <!-- Используем переданную из view переменную -->
+                <td class="text-success">{{ success_rate|floatformat:1 }}%</td>
+            </tr>
+            <tr>
+                <td><strong class="text-danger">Не успешно</strong></td>
+                <td>{{ stats.fail_attempts }}</td>
+                <!-- ИСПРАВЛЕНО: используем готовую переменную fail_rate из контекста -->
+                <td class="text-danger">{{ fail_rate|floatformat:1 }}%</td>
+            </tr>
+            <tr class="fw-bold">
+                <td>ВСЕГО ПОПЫТОК</td>
+                <td>{{ stats.total_attempts }}</td>
+                <td>100%</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+
+<!-- Таблица последних ошибок (для анализа проблем) -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Последние ошибки отправки</h3>
+    <small class="text-muted">(последние 10 записей)</small>
+</div>
+{% if recent_errors %}
+<div class="table-responsive bg-white shadow-sm rounded p-3">
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Рассылка #</th>
+                <th>Получатель</th>
+                <th>Ошибка</th>
+                <th>Ответ сервера</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for attempt in recent_errors %}
+            <tr>
+                <td>{{ attempt.sent_at|date:"d.m.Y H:i" }}</td>
+                <td>#{{ attempt.mailing.id }}</td>
+                <td>{{ attempt.client.email }}</td>
+                <td class="text-danger fw-bold">{{ attempt.error_message }}</td>
+                <td class="small text-muted">{{ attempt.server_response|default:"Нет данных" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info" role="alert">
+    Ошибок не зафиксировано. Все рассылки отправлены успешно! 🎉
+</div>
+{% endif %}
+
+<div class="mt-4">
+    <a href="{% url 'mailing:dashboard' %}" class="btn btn-outline-secondary">Вернуться на главную</a>
+</div>
+{% endblock %}

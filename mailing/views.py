@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from .forms import MailingForm
+from django.db.models import Count, Q
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
 
@@ -165,3 +166,49 @@ def dashboard(request):
         'unique_recipients': unique_recipients,
     }
     return render(request, 'mailing/dashboard.html', context)
+
+def statistics_report(request):
+    """
+    Собирает и отображает статистику по рассылкам и попыткам отправки.
+    Безопасен для случая, когда в БД ещё нет записей.
+    """
+    now = timezone.now()
+
+    # 1. Общая статистика рассылок
+    total_mailings = Mailing.objects.count()
+    active_mailings = Mailing.objects.filter(start_time__lte=now, end_time__gte=now).count()
+    completed_mailings = Mailing.objects.filter(end_time__lt=now).count()
+
+    # 2. Агрегация попыток отправки
+    stats = MailingAttempt.objects.aggregate(
+        total_attempts=Count('id'),
+        success_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_SUCCESS)),
+        fail_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_FAIL))
+    )
+
+    total = stats['total_attempts']
+    success = stats['success_attempts']
+
+    # Расчёт процентов (защита от деления на ноль)
+    success_rate = (success / total * 100) if total > 0 else 0.0
+    fail_rate = 100.0 - success_rate
+
+    # 3. Последние ошибки (оптимизировано: select_related для ForeignKey, prefetch_related не нужен для такой выборки)
+    recent_errors = MailingAttempt.objects.filter(
+        status=MailingAttempt.STATUS_FAIL
+    ).select_related('mailing', 'client').order_by('-sent_at')[:10]
+
+    context = {
+        'total_mailings': total_mailings,
+        'active_mailings': active_mailings,
+        'completed_mailings': completed_mailings,
+
+        'stats': stats,
+        'recent_errors': recent_errors,
+
+        # Готовые проценты для шаблона (не нужно считать в HTML)
+        'success_rate': success_rate,
+        'fail_rate': fail_rate,
+    }
+
+    return render(request, 'mailing/statistics_report.html', context)
