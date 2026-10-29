@@ -1,16 +1,17 @@
 import secrets
-
+import string
+from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy, reverse
-from django.views.generic import CreateView
+from django.utils import timezone
+from django.views.generic import CreateView, View
+from django.contrib.auth.views import PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 
 from user.forms import UserRegisterForm
 from user.models import Users
-
-from config.settings import EMAIL_HOST_USER
 
 
 class UserCreateView(CreateView):
@@ -20,64 +21,74 @@ class UserCreateView(CreateView):
     success_url = reverse_lazy('user:login')
 
     def form_valid(self, form):
-        user = form.save()
-        user.is_active = False
-        token = secrets.token_hex(16)
+        user = form.save(commit=False)
+        user.is_active = False  # Пользователь не активен до подтверждения почты
+        
+        # Генерация токена
+        token = secrets.token_urlsafe(32)
         user.token = token
         user.save()
 
-        host = self.request.get_host()
-        protocol = 'https' if self.request.is_secure() else 'http'
-        url = f'{protocol}://{host}/user/email-confirm/{token}/'
+        # Отправка письма
+        subject = "Подтверждение регистрации"
+        message = f"Здравствуйте! Для подтверждения регистрации перейдите по ссылке:\n\n{settings.BASE_URL}/user/email-confirm/{token}/\n\nЕсли вы не регистрировались, просто проигнорируйте это письмо."
+        from_email = settings.DEFAULT_FROM_EMAIL
+        recipient_list = [user.email]
 
         try:
-            send_mail(
-                subject='Добро пожаловать в наш проект!',
-                message=(
-                    f'Привет!\n\n'
-                    'Спасибо, что зарегистрировался!\n\n'
-                    'Твой аккаунт пока не активен - нужно подтвердить почту по ссылке из следующего письма.\n\n'
-                    'До встречи внутри!'
-                ),
-                from_email=EMAIL_HOST_USER,
-                recipient_list=[user.email],
-            )
+            send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+            messages.success(self.request, "Регистрация успешна! Проверьте почту для подтверждения.")
         except Exception as e:
-            print(f"Warning: failed to send welcome email to {user.email}: {e}")
-
-        try:
-            send_mail(
-                subject='Подтверждение почты',
-                message=(
-                    f'Привет!\n\n'
-                    f'Чтобы активировать аккаунт, перейди по ссылке:\n{url}\n\n'
-                    'Если ты не регистрировался - просто проигнорируй это письмо.'
-                ),
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[user.email],
-            )
-        except Exception as e:
-            print(f"[Confirm Email Error] {e}")
-            # Если не ушло подтверждение - откатываем регистрацию
-            user.delete()
-            messages.error(self.request, 'Не удалось отправить письмо с подтверждением. Пожалуйста, попробуйте позже.')
+            # В продакшене лучше логировать ошибку, а пользователю показать сообщение об ошибке
+            messages.error(self.request, f"Не удалось отправить письмо: {str(e)}")
+            user.delete() # Отменяем регистрацию при ошибке отправки
             return redirect('user:register')
-
-        messages.success(self.request, 'Регистрация прошла успешно! Проверьте почту для подтверждения.')
 
         return super().form_valid(form)
 
+
 def email_verification(request, token):
+    """Обработка перехода по ссылке подтверждения"""
     user = get_object_or_404(Users, token=token)
+    
+    # Проверка срока действия токена (опционально, например, 24 часа)
+    if user.date_joined + timedelta(hours=24) < timezone.now():
+        messages.error(request, "Срок действия ссылки истек. Пожалуйста, зарегистрируйтесь заново.")
+        return redirect('user:register')
 
-    if user.is_active:
-        messages.info(request, 'Этот аккаунт уже подтверждён.')
-        return redirect('user:login')
-
-    user.is_active=True
-    user.token = ''
+    user.is_active = True
+    user.token = None # Очищаем токен после использования
     user.save()
-
-    messages.success(request, 'Почта подтверждена! Теперь можно войти.')
-
+    messages.success(request, "Email подтвержден! Теперь вы можете войти в систему.")
     return redirect('user:login')
+
+
+# --- Логика восстановления пароля ---
+
+class CustomPasswordResetView(PasswordResetView):
+    """Переопределяем стандартный вид сброса пароля, чтобы использовать email вместо username"""
+    email_template_name = 'user/password_reset_email.html'
+    subject_template_name = 'user/password_reset_subject.txt'
+    template_name = 'user/password_reset_form.html'
+    success_url = reverse_lazy('user:password_reset_done')
+    
+    # Важно: так как у нас USERNAME_FIELD = 'email', стандартная форма может не подойти.
+    # Но PasswordResetView по умолчанию ищет по полю username. 
+    # Нам нужно подменить форму, чтобы она искала по email.
+    from django.contrib.auth.forms import PasswordResetForm
+    
+    class EmailBasedPasswordResetForm(PasswordResetForm):
+        def get_users(self, email):
+            """Возвращает пользователей с указанным email"""
+            return Users.objects.filter(email__iexact=email, is_active=True)
+
+    form_class = EmailBasedPasswordResetForm
+
+
+class CustomPasswordResetConfirmView(PasswordResetConfirmView):
+    template_name = 'user/password_reset_confirm.html'
+    success_url = reverse_lazy('user:password_reset_complete')
+
+
+class CustomPasswordResetCompleteView(PasswordResetCompleteView):
+    template_name = 'user/password_reset_complete.html'
