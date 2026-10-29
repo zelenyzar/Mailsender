@@ -68,11 +68,29 @@ class MailingListView(ListView):
 class MailingDetailView(DetailView):
     model = Mailing
 
+    def get_queryset(self):
+        # Заранее загружаем связанные попытки отправки (MailingAttempt)
+        return super().get_queryset().prefetch_related('attempts')
+
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
         obj.update_status()  # пересчет и сохранение статуса при просмотре
         return obj
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        object = context['object']
+        total_attempts = object.attempts.count()
+        success_attempts = object.attempts.filter(
+            status=MailingAttempt.STATUS_SUCCESS
+        ).count()
+        fail_attempts = total_attempts - success_attempts
+
+        context['total_attempts'] = total_attempts
+        context['success_attempts'] = success_attempts
+        context['fail_attempts'] = fail_attempts
+
+        return context
 
 class MailingCreateView(CreateView):
     model = Mailing
@@ -81,13 +99,14 @@ class MailingCreateView(CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        self.obj.update_status()
+        self.object.update_status()
         return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['messages_list'] = Message.objects.all()
         context['clients_list'] = Client.objects.all()
+        context['recipient_ids'] = []
         return context
 
 
@@ -98,13 +117,18 @@ class MailingUpdateView(UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        self.obj.update_status()
+        self.object.update_status()
         return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['messages_list'] = Message.objects.all()
         context['clients_list'] = Client.objects.all()
+
+        if self.object:
+            context['recipient_ids'] = list(self.object.recipients.values_list('id', flat=True))
+        else:
+            context['recipient_ids'] = []
         return context
 
 
@@ -129,18 +153,14 @@ def mailing_send(request, pk):
 def dashboard(request):
     now = timezone.now()
     total_mailings = Mailing.objects.count()
-    active_mailings = (
-        Mailling.objects
-        .filter(status=Mailing.STATUS_RUNNING)
-        .filter(start_time__lte=now, end_time__gte=now)
-        .count()
-    )
-
     unique_recipients = Client.objects.count()
-
+    active_mailings = Mailing.objects.filter(
+        start_time__lte=now,
+        end_time__gte=now
+    ).count()
     context = {
         'total_mailing': total_mailings,
         'active_mailings': active_mailings,
         'unique_recipients': unique_recipients,
     }
-    return render(render(request, 'mailing/dashboard.html', context)
+    return render(request, 'mailing/dashboard.html', context)
