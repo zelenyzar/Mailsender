@@ -1,8 +1,8 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.models import User
 
-from user.models import Users
+from user.models import User
 
 
 class StyleFormMixin:
@@ -70,19 +70,45 @@ class StyleFormMixin:
 
 class UserRegisterForm(StyleFormMixin,UserCreationForm):
     class Meta:
-        model = Users
+        model = User
         fields = ('email', 'password1', 'password2')
 
 
-class EmailRegistrationForm(UserCreationForm):
-    email = forms.EmailField(required=True, label="Email")
+# НОВАЯ ФОРМА ДЛЯ ВХОДА
+class CustomLoginForm(StyleFormMixin, AuthenticationForm):
+    username = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={'autofocus': True, 'class': 'form-control'})
+    )
+    password = forms.CharField(
+        label="Пароль",
+        strip=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
 
-    class Meta:
-        model = Users
-        fields = ('email', 'password1', 'password2')
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get('username') # В стандартной форме поле называется username
+        password = cleaned_data.get('password')
+        
+        if email and password:
+            self.user_cache = Users.objects.filter(email=email).first()
+            if not self.user_cache or not self.user_cache.check_password(password):
+                raise forms.ValidationError("Неверный логин или пароль.")
+            elif not self.user_cache.is_active:
+                raise forms.ValidationError("Аккаунт не подтвержден. Проверьте почту.")
+        return cleaned_data
 
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        if commit:
-            user.save()
-        return user
+
+# class EmailRegistrationForm(UserCreationForm):
+#     email = forms.EmailField(required=True, label="Email")
+
+#     class Meta:
+#         model = User
+#         fields = ('email', 'password1', 'password2')
+
+#     def save(self, commit=True):
+#         user = super().save(commit=False)
+#         if commit:
+#             user.save()
+#         return user
