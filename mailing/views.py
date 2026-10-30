@@ -28,12 +28,19 @@ class ClientCreateView(CreateView):
 
     def form_valid(self, form):
         form.instance.owner = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        cache.clear()
+        return response
 
 
 class ClientUpdateView(OwnerCheckMixin, UpdateView):
     model = Client
     form_class = ClientForm
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        cache.clear()
+        return response
 
 
 class ClientDeleteView(OwnerCheckMixin, DeleteView):
@@ -41,6 +48,11 @@ class ClientDeleteView(OwnerCheckMixin, DeleteView):
     template_name = 'includes/confirm_delete.html' 
     success_url = '/clients/'
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        cache.clear()
+        return response
+        
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         obj = self.get_object()
@@ -130,7 +142,9 @@ class MailingCreateView(CreateView):
 
     def form_valid(self, form):
         form.instance.owner = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        cache.clear()
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -180,10 +194,27 @@ class MailingDeleteView(OwnerCheckMixin, DeleteView):
         return context
 
 
+# mailing/views.py
+from django.core.cache import cache
+
+# ... остальные импорты
+
+
 def mailing_send(request, pk):
     mailing = get_object_or_404(Mailing, pk=pk)
     if request.method == 'POST':
         success, errors = mailing.send()
+
+        # --- Инвалидация кеша: статистика изменилась ---
+        cache.delete('statistics_global')
+        if mailing.owner_id:
+            cache.delete(f'statistics_user_{mailing.owner_id}')
+        # статус рассылки тоже мог измениться внутри send()
+        cache.delete('mailing_list_all')
+        if mailing.owner_id:
+            cache.delete(f'mailing_list_{mailing.owner_id}')
+        cache.delete(f'dashboard_{mailing.owner_id}')
+
         if success:
             messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
         else:
