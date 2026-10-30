@@ -134,8 +134,3 @@ RQ_QUEUES = {
 }
 
 RQ_SHOW_ADMIN_LINK = True
-
-AUTHENTICATION_BACKENDS = [
-    'user.backends.EmailBackend', 
-    'django.contrib.auth.backends.ModelBackend',
-]
