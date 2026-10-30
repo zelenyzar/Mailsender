@@ -6,6 +6,10 @@ from django.utils import timezone
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from .forms import MailingForm
 from django.db.models import Count, Q
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+import django_rq
+from .tasks import run_mailing_task
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
 
@@ -242,3 +246,19 @@ def block_mailing(request, pk):
     mailing.save()
     return redirect('mailing:mailing_list')
     
+@login_required
+@require_POST
+def start_mailing(request, pk):
+    # 1. Проверка прав (владелец)
+    mailing = get_object_or_404(Mailing, pk=pk, owner=request.user)
+    
+    # 2. Ставим статус "Запущена" сразу, чтобы интерфейс обновился
+    mailing.status = Mailing.STATUS_RUNNING
+    mailing.save()
+
+    # 3. Отправляем задачу в очередь Redis
+    queue = django_rq.get_queue('default')
+    job = queue.enqueue(run_mailing_task, mailing.id)
+
+    messages.success(request, f"Рассылка #{mailing.id} отправлена в очередь обработки!")
+    return redirect('mailing:dashboard')
