@@ -195,17 +195,19 @@ def mailing_send(request, pk):
 # --- Dashboard ---
 def dashboard(request):
     now = timezone.now()
-    total_mailings = Mailing.objects.count()
-    unique_recipients = Client.objects.count()
-    active_mailings = Mailing.objects.filter(
-        start_time__lte=now,
-        end_time__gte=now
-    ).count()
-    context = {
-        'total_mailings': total_mailings,
-        'active_mailings': active_mailings,
-        'unique_recipients': unique_recipients,
-    }
+
+    context = cache.get_or_set(
+        f'dashboard_{request.user.pk}',
+        lambda: {
+            'total_mailings': Mailing.objects.count(),
+            'unique_recipients': Client.objects.count(),
+            'active_mailings': Mailing.objects.filter(
+                start_time__lte=now,
+                end_time__gte=now
+            ).count(),
+        },
+        timeout=60 * 5,  # 5 минут
+    )
     return render(request, 'mailing/dashboard.html', context)
 
 def statistics_report(request):
