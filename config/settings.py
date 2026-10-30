@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'django_rq',
     'user',
     'mailing'
 ]
@@ -122,3 +123,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Указываем кастомную модель пользователя
 AUTH_USER_MODEL = 'user.User'
+
+RQ_QUEUES = {
+    'default': {
+        'HOST': os.getenv('REDIS_HOST', 'localhost'),
+        'PORT': int(os.getenv('REDIS_PORT', 6379)),
+        'DB': 0,
+        'DEFAULT_TIMEOUT': 3600,  # Таймаут задачи 1 час
+    }
+}
+
+RQ_SHOW_ADMIN_LINK = True
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"),
+    }
+}

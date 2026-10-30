@@ -1,4 +1,6 @@
 from django.core.management import BaseCommand, CommandError
+from django.core.cache import cache
+from django.utils import timezone
 from mailing.models import Mailing
 
 
@@ -29,6 +31,14 @@ class Command(BaseCommand):
 
         self.stdout.write(f'Попытка запуска рассылки {mailing_id}...')
         success, errors = mailing.send()
+
+        # --- Инвалидация кеша: созданы попытки, статус мог измениться ---
+        cache.delete('statistics_global')
+        cache.delete('mailing_list_all')
+        if mailing.owner_id:
+            cache.delete(f'statistics_user_{mailing.owner_id}')
+            cache.delete(f'dashboard_{mailing.owner_id}')
+            cache.delete(f'mailing_list_{mailing.owner_id}')
 
         total_attempts = mailing.attempts.count()
         failed_count = mailing.attempts.filter(status='Не успешно').count()

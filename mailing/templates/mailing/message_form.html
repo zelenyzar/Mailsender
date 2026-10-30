@@ -1,25 +1,19 @@
-{% extends "base.html" %}
-{% block title %}{% if object %}Изменить сообщение{% else %}Новое сообщение{% endif %}{% endblock %}
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header"><h4>{% if object %}Редактирование{% else %}Создание{% endif %} сообщения</h4></div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label">Тема</label>
-                        <input type="text" name="subject" value="{{ object.subject|default:'' }}" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Текст сообщения</label>
-                        <textarea name="message" class="form-control" rows="6">{{ object.message|default:'' }}</textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Сохранить</button>
-                </form>
-            </div>
-        </div>
+{% extends "includes/form_card.html" %}
+
+{% block form_title %}{% if object %}Изменить сообщение{% else %}Новое сообщение{% endif %}{% endblock %}
+{% block submit_text %}Сохранить{% endblock %}
+{% block cancel_url %}{% url 'mailing:message_list' %}{% endblock %}
+
+{% block form_fields %}
+    <div class="mb-3">
+        <label class="form-label">Тема <span class="text-danger">*</span></label>
+        <input type="text" name="subject" value="{{ object.subject|default:'' }}" class="form-control" required>
+        {% comment %}Если используешь form.subject — замени на {{ form.subject }}{% endcomment %}
     </div>
-</div>
+
+    <div class="mb-3">
+        <label class="form-label">Текст сообщения <span class="text-danger">*</span></label>
+        <textarea name="message" class="form-control" rows="6" required>{{ object.message|default:'' }}</textarea>
+        {% comment %}Если используешь form.message — замени на {{ form.message }}{% endcomment %}
+    </div>
 {% endblock %}

@@ -1,8 +1,5 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordResetForm, SetPasswordForm
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
 from user.models import User
 
 class StyleFormMixin:
@@ -24,7 +21,8 @@ class StyleFormMixin:
             if field_type == "file":
                 widget.attrs.update({**base_attrs, "class": self.file_input_class, "accept": "image/*"})
             elif isinstance(widget, forms.Textarea):
-                widget.attrs.update({**base_attrs, "class": f"{self.base_control_class} rows=4"})
+                # rows=4 лучше задавать через атрибут, а не в классе
+                widget.attrs.update({**base_attrs, "class": f"{self.base_control_class}", "rows": "4"})
             elif isinstance(widget, forms.NumberInput):
                 widget.attrs.update({**base_attrs, "class": f"{self.base_control_class} text-start", "step": "1", "min": "0"})
             elif isinstance(widget, forms.Select):
@@ -57,26 +55,47 @@ class UserRegisterForm(StyleFormMixin, UserCreationForm):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
         if commit:
-            user.is_active = False  # Деактивируем до подтверждения почты
+            user.is_active = False
             user.save()
         return user
 
-# Форма входа (переопределяем поле username на email)
+# --- ИСПРАВЛЕННАЯ ФОРМА ВХОДА ---
 class CustomLoginForm(StyleFormMixin, AuthenticationForm):
-    username = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={'autofocus': True}))
+    # Используем отдельное поле email вместо переопределения username
+    email = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={'autofocus': True}))
     password = forms.CharField(label="Пароль", strip=False, widget=forms.PasswordInput())
 
     error_messages = {
-        'invalid_login': "Неверный логин или пароль.",
+        'invalid_login': "Неверный email или пароль.",
         'inactive': "Аккаунт не подтвержден. Проверьте почту.",
     }
 
-# Форма сброса пароля (стандартная, но с кастомным поиском по email)
+    # Переопределяем clean(), чтобы использовать наше поле email для аутентификации
+    def confirm_login_allowed(self, user):
+        if not user.is_active:
+            raise forms.ValidationError(
+                self.error_messages['inactive'],
+                code='inactive',
+            )
+
+    def clean(self):
+        email = self.cleaned_data.get('email')
+        password = self.cleaned_data.get('password')
+
+        if email and password:
+            self.user_cache = authenticate(self.request, email=email, password=password)
+            if self.user_cache is None:
+                raise self.get_invalid_login_error()
+            else:
+                self.confirm_login_allowed(self.user_cache)
+
+        return self.cleaned_data
+
+# Форма сброса пароля
 class CustomPasswordResetForm(StyleFormMixin, PasswordResetForm):
     email = forms.EmailField(label='Email', max_length=254)
 
     def get_users(self, email):
-        """Возвращает активных пользователей с указанным email."""
         active_users = User._default_manager.filter(
             email__iexact=email,
             is_active=True
