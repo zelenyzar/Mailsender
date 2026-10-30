@@ -38,7 +38,21 @@ class ClientUpdateView(OwnerCheckMixin, UpdateView):
 
 class ClientDeleteView(OwnerCheckMixin, DeleteView):
     model = Client
+    template_name = 'includes/confirm_delete.html' 
     success_url = '/clients/'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        obj = self.get_object()
+        
+        context['object_name'] = f"получателя {obj.email}"
+        context['warning_message'] = (
+            "Это действие нельзя отменить. Будут удалены все связи "
+            "этого получателя с рассылками."
+        )
+        context['cancel_url'] = self.request.GET.get('next', self.success_url)
+        
+        return context
 
 
 # --- Message ---
@@ -64,7 +78,18 @@ class MessageUpdateView(UpdateView):
 
 class MessageDeleteView(DeleteView):
     model = Message
+    template_name = 'includes/confirm_delete.html'
     success_url = reverse_lazy('mailing:message_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        obj = self.get_object()
+
+        context['object_name'] = f"сообщение «{obj.subject}»"
+        context['warning_message'] = "Вы уверены? Это сообщение больше не будет доступно для выбора в рассылках."
+        context['cancel_url'] = self.request.GET.get('next', self.success_url)
+
+        return context
 
 
 # --- Mailing ---
@@ -138,7 +163,21 @@ class MailingUpdateView(OwnerCheckMixin, UpdateView):
 
 class MailingDeleteView(OwnerCheckMixin, DeleteView):
     model = Mailing
+    template_name = 'includes/confirm_delete.html'
     success_url = '/mailings/'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        obj = self.get_object()
+
+        context['object_name'] = f"рассылку #{obj.pk}"
+        context['warning_message'] = (
+            "Внимание: будут удалены сама рассылка, все попытки отправки "
+            "(логи ошибок, статусы) и связи с получателями. Восстановить невозможно."
+        )
+        context['cancel_url'] = self.request.GET.get('next', self.success_url)
+
+        return context
 
 
 def mailing_send(request, pk):
