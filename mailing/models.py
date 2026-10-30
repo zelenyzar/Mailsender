@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.utils import timezone
@@ -18,7 +18,6 @@ class Client(models.Model):
         verbose_name='Ф.И.О.', help_text='введите Ф.И.О. полностью'
     )
     comment = models.TextField(blank=True, null=True, verbose_name='Комментарий')
-    # ДОБАВЛЕНО: Владелец клиента
     owner = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='clients', 
         verbose_name='Владелец', editable=False
@@ -28,18 +27,14 @@ class Client(models.Model):
         verbose_name = 'Получатель рассылки'
         verbose_name_plural = 'Получатели рассылки'
         ordering = ['email']
-        # Уникальность email теперь только в рамках владельца (опционально, зависит от бизнеса)
-        # Если email должен быть глобально уникальным, оставь unique=True в поле email.
-        # Если можно иметь одинаковых клиентов у разных пользователей, убери unique=True из email.
 
     def __str__(self):
-        return f"{self.email} ({self.owner.username})"
+        return f"{self.email}"
 
 
 class Message(models.Model):
     subject = models.CharField(max_length=100, verbose_name='Тема письма')
     message = models.TextField(blank=True, null=True, verbose_name='Сообщение')
-    # ДОБАВЛЕНО: Владелец сообщения
     owner = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='messages', 
         verbose_name='Владелец', editable=False
@@ -54,11 +49,40 @@ class Message(models.Model):
         return self.subject
 
 
+class MailingAttempt(models.Model):
+    STATUS_SUCCESS = 'Успешно'
+    STATUS_FAIL = 'Не успешно'
+
+    STATUS_CHOICES = [
+        (STATUS_SUCCESS, 'Успешно'),
+        (STATUS_FAIL, 'Не успешно'),
+    ]
+
+    mailing = models.ForeignKey(Mailing, on_delete=models.CASCADE, related_name='attempts')
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    error_message = models.TextField(blank=True, null=True, default='', verbose_name='Текст ошибки')
+    sent_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата отправки')
+    server_response = models.TextField(blank=True, null=True, verbose_name='Ответ почтового сервера')
+    
+    owner = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='attempts', 
+        verbose_name='Владелец', editable=False, null=True
+    )
+
+    class Meta:
+        verbose_name = 'Попытка рассылки'
+        verbose_name_plural = 'Попытки рассылки'
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f'{self.mailing.id} -> {self.client.email} ({self.status})'
+
+
 class Mailing(models.Model):
     STATUS_CREATED = 'Создана'
     STATUS_RUNNING = 'Запущена'
     STATUS_COMPLETED = 'Завершена'
-    # Статус для менеджеров (блокировка)
     STATUS_BLOCKED = 'Заблокирована' 
 
     STATUS_CHOICES = [
@@ -80,7 +104,6 @@ class Mailing(models.Model):
     recipients = models.ManyToManyField(
         Client, related_name='mailings', verbose_name='Получатели'
     )
-    # ДОБАВЛЕНО: Владелец рассылки
     owner = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='mailings', 
         verbose_name='Владелец', editable=False
@@ -97,42 +120,35 @@ class Mailing(models.Model):
     def clean(self):
         if self.start_time and self.end_time and self.start_time >= self.end_time:
             raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
-            
-    def save(self, *args, **kwargs):
-        # Автоматически обновляем статус при сохранении, если нужно
-        self.update_status()
-        super().save(*args, **kwargs)
 
-    def update_status(self):
+
+    @classmethod
+    def update_all_statuses(cls):
+        """
+        Фоновая задача: обновляет статусы всех рассылок по времени.
+        Вызывать из Celery/RQ, а не из save().
+        """
         now = timezone.now()
-        new_status = self.status
-
-        # Не меняем статус, если рассылка заблокирована менеджером
-        if self.status == self.STATUS_BLOCKED:
-            return
-
-        if now < self.start_time:
-            new_status = self.STATUS_CREATED
-        elif now <= self.end_time:
-            new_status = self.STATUS_RUNNING
-        else:
-            new_status = self.STATUS_COMPLETED
-
-        if new_status != self.status:
-            self.status = new_status
-            # Используем update_fields, чтобы не вызывать save() рекурсивно и не триггерить лишние проверки
-            from django.db import transaction
-            with transaction.atomic():
-                Mailing.objects.filter(pk=self.pk).update(status=new_status)
-                self.status = new_status # Обновляем локальный объект
+        with transaction.atomic():
+            cls.objects.filter(
+                status=cls.STATUS_CREATED,
+                start_time__lte=now,
+                end_time__gte=now
+            ).update(status=cls.STATUS_RUNNING)
+            
+            cls.objects.filter(
+                status=cls.STATUS_RUNNING,
+                end_time__lt=now
+            ).update(status=cls.STATUS_COMPLETED)
 
     def send(self):
         """
-        Запуск рассылки.
+        ВАЖНО: Этот метод НЕЛЬЗЯ вызывать напрямую из View.
+        Он должен быть обернут в задачу Celery/RQ.
+        Возвращает кортеж (успех, список ошибок).
         """
         now = timezone.now()
 
-        # Проверка статуса блокировки
         if self.status == self.STATUS_BLOCKED:
             return False, ['Рассылка заблокирована администратором']
 
@@ -148,6 +164,9 @@ class Mailing(models.Model):
         from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com')
 
         errors = []
+        success_count = 0
+
+        attempts_to_create = []
 
         for client in clients:
             try:
@@ -158,57 +177,34 @@ class Mailing(models.Model):
                     recipient_list=[client.email],
                     fail_silently=False,
                 )
-
-                MailingAttempt.objects.create(
-                    mailing=self,
-                    client=client,
-                    status=MailingAttempt.STATUS_SUCCESS,
-                    error_message='',
-                    server_response='OK (через Django backend)',
-                    owner=self.owner # Наследуем владельца от рассылки
+                
+                attempts_to_create.append(
+                    MailingAttempt(
+                        mailing=self,
+                        client=client,
+                        status=MailingAttempt.STATUS_SUCCESS,
+                        error_message='',
+                        server_response='OK',
+                        owner=self.owner
+                    )
                 )
+                success_count += 1
             except Exception as e:
                 error_text = str(e)
                 errors.append(f'{client.email}: {error_text}')
-                MailingAttempt.objects.create(
-                    mailing=self,
-                    client=client,
-                    status=MailingAttempt.STATUS_FAIL,
-                    error_message=error_text,
-                    server_response='',
-                    owner=self.owner
+                attempts_to_create.append(
+                    MailingAttempt(
+                        mailing=self,
+                        client=client,
+                        status=MailingAttempt.STATUS_FAIL,
+                        error_message=error_text,
+                        server_response='',
+                        owner=self.owner
+                    )
                 )
 
-        success = len(errors) == 0
-        return success, errors
+        if attempts_to_create:
+            MailingAttempt.objects.bulk_create(attempts_to_create)
 
-
-class MailingAttempt(models.Model):
-    STATUS_SUCCESS = 'Успешно'
-    STATUS_FAIL = 'Не успешно'
-
-    STATUS_CHOICES = [
-        (STATUS_SUCCESS, 'Успешно'),
-        (STATUS_FAIL, 'Не успешно'),
-    ]
-
-    mailing = models.ForeignKey(Mailing, on_delete=models.CASCADE, related_name='attempts')
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    error_message = models.TextField(blank=True, null=True, default='', verbose_name='Текст ошибки')
-    sent_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата отправки')
-    server_response = models.TextField(blank=True, null=True, verbose_name='Ответ почтового сервера')
-    
-    # ДОБАВЛЕНО: Владелец попытки (для фильтрации статистики)
-    owner = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='attempts', 
-        verbose_name='Владелец', editable=False, null=True
-    )
-
-    class Meta:
-        verbose_name = 'Попытка рассылки'
-        verbose_name_plural = 'Попытки рассылки'
-        ordering = ['-sent_at']
-
-    def __str__(self):
-        return f'{self.mailing.id} -> {self.client.email} ({self.status})'
+        all_sent = len(errors) == 0
+        return all_sent, errors
