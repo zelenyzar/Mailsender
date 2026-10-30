@@ -122,3 +122,22 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Указываем кастомную модель пользователя
 AUTH_USER_MODEL = 'user.User'
+
+# Redis URL (формат: redis://[:password]@host:port/db)
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # Таймауты (опционально)
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+        },
+    }
+}
+
+# Время жизни кеша по умолчанию (в секундах)
+CACHE_TTL_DEFAULT = int(os.getenv("CACHE_TTL_DEFAULT", "300"))
