@@ -1,0 +1,201 @@
+6
+mailing/views.py 
+from django.shortcuts import render
+from django.utils import timezone
+from .models import Mailing, Client
+
+def dashboard(request):
+    now = timezone.now()
+
+    # 1. Общее количество всех рассылок
+    total_mailings = Mailing.objects.count()
+
+    # 2. Активные рассылки:
+    # - сейчас между start_time и end_time
+    # - статус == 'Запущена'
+    active_mailings = Mailing.objects.filter(
+        start_time__lte=now,
+        end_time__gte=now,
+        status=Mailing.STATUS_RUNNING
+    ).count()
+
+    # 3. Уникальные получатели (все клиенты в системе)
+    unique_clients = Client.objects.count()
+
+    context = {
+        'total_mailings': total_mailings,
+        'active_mailings': active_mailings,
+        'unique_clients': unique_clients,
+    }
+
+    return render(request, 'mailing/dashboard.html', context)
+
+
+Важно: Убедись, что в модели Mailing константы статусов совпадают. В предыдущих шагах мы использовали:
+
+python
+STATUS_RUNNING = 'Запущена'
+Если у тебя в коде написано иначе (например, 'running'), поправь значение в фильтре.
+
+
+mailing/urls.py
+# ... импорты ...
+from .views import dashboard, mailing_send, MailingListView, ...  # остальные импорты
+
+app_name = 'mailing'
+
+urlpatterns = [
+    # ГЛАВНАЯ СТРАНИЦА (ДАШБОРД)
+    path('', dashboard, name='dashboard'),
+
+    # Остальные пути (clients, messages, mailings и т.д.)
+    path('mailings/', MailingListView.as_view(), name='mailing_list'),
+    # ...
+]
+
+
+mailing/templates/mailing/dashboard.html
+{% extends 'base.html' %}  <!-- Если есть базовый шаблон -->
+{% block content %}
+
+<h1>Панель управления рассылками</h1>
+<p>Основные метрики системы на {{ now|date:"d.m.Y H:i" }}.</p>
+
+<div style="display: flex; gap: 20px; flex-wrap: wrap;">
+    
+    <!-- Карточка 1: Всего рассылок -->
+    <div style="
+        flex: 1; min-width: 250px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+    ">
+        <h3 style="color: #6c757d; margin: 0;">Всего рассылок</h3>
+        <div style="font-size: 36px; font-weight: bold; color: #333; margin-top: 10px;">
+            {{ total_mailings }}
+        </div>
+    </div>
+
+    <!-- Карточка 2: Активные рассылки -->
+    <div style="
+        flex: 1; min-width: 250px;
+        background: #fff;
+        border: 2px solid #28a745;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 0 10px rgba(40, 167, 69, 0.1);
+    ">
+        <h3 style="color: #28a745; margin: 0;">Активных рассылок</h3>
+        <div style="font-size: 36px; font-weight: bold; color: #28a745; margin-top: 10px;">
+            {{ active_mailings }}
+        </div>
+        <p style="font-size: 12px; color: #666;">
+            Статус: «Запущена» и текущее время в окне рассылки
+        </p>
+    </div>
+
+    <!-- Карточка 3: Уникальные клиенты -->
+    <div style="
+        flex: 1; min-width: 250px;
+        background: #e9ecef;
+        border: 1px solid #ced4da;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+    ">
+        <h3 style="color: #495057; margin: 0;">Уникальных получателей</h3>
+        <div style="font-size: 36px; font-weight: bold; color: #333; margin-top: 10px;">
+            {{ unique_clients }}
+        </div>
+    </div>
+
+</div>
+
+<hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
+
+<h2>Быстрый доступ</h2>
+<div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+    <a href="{% url 'mailing:mailing_list' %}" style="
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+    ">📧 Список всех рассылок</a>
+
+    <a href="{% url 'mailing:mailing_create' %}" style="
+        padding: 10px 20px;
+        background-color: #17a2b8;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+    ">➕ Создать новую рассылку</a>
+
+    <a href="{% url 'mailing:client_list' %}" style="
+        padding: 10px 20px;
+        background-color: #6c757d;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+    ">👤 Управление клиентами</a>
+</div>
+
+{% endblock %}
+
+
+Если у тебя нет базового шаблона base.html, используй этот вариант без наследования (полный HTML):
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Дашборд рассылок</title>
+</head>
+<body style="font-family: Arial, sans-serif; padding: 20px;">
+    <h1>Панель управления рассылками</h1>
+    
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 250px; background: #f8f9fa; border: 1px solid #dee2e6; padding: 20px; border-radius: 8px; text-align: center;">
+            <h3 style="color: #6c757d; margin: 0;">Всего рассылок</h3>
+            <div style="font-size: 36px; font-weight: bold; color: #333; margin-top: 10px;">{{ total_mailings }}</div>
+        </div>
+        
+        <div style="flex: 1; min-width: 250px; background: #fff; border: 2px solid #28a745; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 0 10px rgba(40, 167, 69, 0.1);">
+            <h3 style="color: #28a745; margin: 0;">Активных рассылок</h3>
+            <div style="font-size: 36px; font-weight: bold; color: #28a745; margin-top: 10px;">{{ active_mailings }}</div>
+            <p style="font-size: 12px; color: #666;">Статус: «Запущена», время в окне отправки</p>
+        </div>
+        
+        <div style="flex: 1; min-width: 250px; background: #e9ecef; border: 1px solid #ced4da; padding: 20px; border-radius: 8px; text-align: center;">
+            <h3 style="color: #495057; margin: 0;">Уникальных получателей</h3>
+            <div style="font-size: 36px; font-weight: bold; color: #333; margin-top: 10px;">{{ unique_clients }}</div>
+        </div>
+    </div>
+
+    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
+    <h2>Действия</h2>
+    <a href="{% url 'mailing:mailing_list' %}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Список рассылок</a>
+    <a href="{% url 'mailing:mailing_create' %}" style="padding: 10px 20px; background-color: #17a2b8; color: white; text-decoration: none; border-radius: 5px;">Создать рассылку</a>
+    <a href="{% url 'mailing:client_list' %}" style="padding: 10px 20px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 5px;">Клиенты</a>
+</body>
+</html>
+
+
+5. Как проверить
+Создай 3 тестовые рассылки:
+Одна с датой в прошлом (должна быть «Завершена»).
+Одна с датой в будущем (должна быть «Создана»).
+Одна с датой прямо сейчас (должна стать «Запущена»).
+Добавь несколько клиентов.
+Зайди на главную страницу (/mailing/).
+Ты должен увидеть:
+Всего рассылок: 3
+Активных рассылок: 1 (только та, что сейчас)
+Уникальных получателей: число твоих клиентов
+
+6. Что можно добавить дальше (идеи)
+График активности: показать количество рассылок по месяцам (через annotate и TruncMonth).
+Топ клиентов: кто чаще всего получает рассылки.
+Процент успеха: вывести общую успешность доставок (на основе MailingAttempt), если уже были отправки.

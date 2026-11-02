@@ -1,0 +1,331 @@
+4
+mailing/models.py
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.utils import timezone
+from django.conf import settings
+from django.core.mail import send_mail
+
+class Client(models.Model):
+    email = models.EmailField(
+        max_length=100, unique=True, verbose_name='Email',
+        validators=[validate_email]
+    )
+    full_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='Ф.И.О.')
+    comment = models.TextField(blank=True, null=True, verbose_name='Комментарий')
+
+    class Meta:
+        verbose_name = 'Получатель рассылки'
+        verbose_name_plural = 'Получатели рассылки'
+
+    def __str__(self):
+        name_part = self.full_name or 'без имени'
+        return f"{name_part} ({self.email})"
+
+
+class Message(models.Model):
+    subject = models.CharField(max_length=100, verbose_name='Тема письма')
+    message = models.TextField(blank=True, null=True, verbose_name='Тело письма')
+
+    class Meta:
+        verbose_name = 'Сообщение'
+        verbose_name_plural = 'Сообщения'
+
+    def __str__(self):
+        return self.subject
+
+
+class Mailing(models.Model):
+    STATUS_CREATED = 'Создана'
+    STATUS_RUNNING = 'Запущена'
+    STATUS_COMPLETED = 'Завершена'
+
+    STATUS_CHOICES = [
+        (STATUS_CREATED, 'Создана'),
+        (STATUS_RUNNING, 'Запущена'),
+        (STATUS_COMPLETED, 'Завершена'),
+    ]
+
+    start_time = models.DateTimeField(verbose_name='Начало')
+    end_time = models.DateTimeField(verbose_name='Окончание')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_CREATED, editable=False
+    )
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='mailings')
+    recipients = models.ManyToManyField(Client, related_name='mailings', verbose_name='Получатели')
+
+    class Meta:
+        verbose_name = 'Рассылка'
+        verbose_name_plural = 'Рассылки'
+        ordering = ['-start_time']
+
+    def __str__(self):
+        return f"Рассылка #{self.pk} ({self.status})"
+
+    def clean(self):
+        now = timezone.now()
+        if self.start_time and self.start_time < now:
+            raise ValidationError({'start_time': 'Дата начала не может быть в прошлом.'})
+        if self.start_time and self.end_time and self.start_time >= self.end_time:
+            raise ValidationError('Дата начала должна быть раньше даты окончания.')
+
+    def update_status(self):
+        now = timezone.now()
+        new_status = self.status
+        if now < self.start_time:
+            new_status = self.STATUS_CREATED
+        elif now <= self.end_time:
+            new_status = self.STATUS_RUNNING
+        else:
+            new_status = self.STATUS_COMPLETED
+
+        if new_status != self.status:
+            self.status = new_status
+            self.save(update_fields=['status'])
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    # --- НОВАЯ ЛОГИКА ОТПРАВКИ ---
+    def send(self):
+        """
+        Запускает рассылку. Возвращает кортеж: (успешно, список ошибок)
+        """
+        now = timezone.now()
+        
+        # 1. Проверка окна времени
+        if not (self.start_time <= now <= self.end_time):
+            return False, ["Рассылка находится вне временного окна отправки."]
+
+        errors = []
+        
+        # Получаем всех получателей
+        clients = self.recipients.all()
+        if not clients.exists():
+            return False, ["В рассылке нет получателей."]
+
+        subject = self.message.subject
+        body = self.message.message
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com')
+
+        for client in clients:
+            try:
+                # 2. Отправка письма
+                send_mail(
+                    subject=subject,
+                    message=body,
+                    from_email=from_email,
+                    recipient_list=[client.email],
+                    fail_silently=False,  # Важно: выбрасывает ошибку при неудаче
+                )
+                
+                # 3. Логирование успеха
+                MailingAttempt.objects.create(
+                    mailing=self,
+                    client=client,
+                    status='Успешно',
+                    error_message=''
+                )
+            except Exception as e:
+                # 4. Логирование ошибки
+                error_text = str(e)
+                MailingAttempt.objects.create(
+                    mailing=self,
+                    client=client,
+                    status='Не успешно',
+                    error_message=error_text
+                )
+                errors.append(f"{client.email}: {error_text}")
+
+        success = len(errors) == 0
+        return success, errors
+
+
+class MailingAttempt(models.Model):
+    """Модель для хранения истории попыток отправки"""
+    STATUS_SUCCESS = 'Успешно'
+    STATUS_FAIL = 'Не успешно'
+    
+    STATUS_CHOICES = [
+        (STATUS_SUCCESS, 'Успешно'),
+        (STATUS_FAIL, 'Не успешно'),
+    ]
+
+    mailing = models.ForeignKey(Mailing, on_delete=models.CASCADE, related_name='attempts')
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    error_message = models.TextField(blank=True, default='', verbose_name='Текст ошибки')
+    sent_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата отправки')
+
+    class Meta:
+        verbose_name = 'Попытка рассылки'
+        verbose_name_plural = 'Попытки рассылок'
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f"{self.mailing.id} -> {self.client.email} ({self.status})"
+
+mailing/views.py
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from .models import Client, Message, Mailing, MailingAttempt
+
+# ... (классы ClientListView, ClientDetailView и т.д. оставляем без изменений) ...
+
+class MailingListView(ListView):
+    model = Mailing
+    template_name = 'mailing/mailing_list.html'
+    context_object_name = 'mailings'
+
+class MailingDetailView(DetailView):
+    model = Mailing
+    template_name = 'mailing/mailing_detail.html'
+    context_object_name = 'mailing'
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+        obj.update_status()
+        return obj
+
+class MailingCreateView(CreateView):
+    model = Mailing
+    fields = ('start_time', 'end_time', 'message', 'recipients')
+    template_name = 'mailing/mailing_form.html'
+    success_url = reverse_lazy('mailing:mailing_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        self.object.update_status()
+        return response
+
+class MailingUpdateView(UpdateView):
+    model = Mailing
+    fields = ('start_time', 'end_time', 'message', 'recipients')
+    template_name = 'mailing/mailing_form.html'
+    success_url = reverse_lazy('mailing:mailing_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        self.object.update_status()
+        return response
+
+class MailingDeleteView(DeleteView):
+    model = Mailing
+    template_name = 'mailing/mailing_confirm_delete.html'
+    success_url = reverse_lazy('mailing:mailing_list')
+
+# --- НОВЫЙ VIEW ДЛЯ ОТПРАВКИ ---
+def mailing_send(request, pk):
+    mailing = get_object_or_404(Mailing, pk=pk)
+    
+    if request.method == 'POST':
+        success, errors = mailing.send()
+        
+        if success:
+            messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
+        else:
+            # Формируем понятное сообщение об ошибках
+            error_text = "\n".join(errors)
+            messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
+        
+        return redirect('mailing:mailing_detail', pk=mailing.pk)
+    
+    # Если GET запрос, просто показываем подтверждение (опционально)
+    return redirect('mailing:mailing_detail', pk=mailing.pk)
+
+
+mailing/urls.py
+from django.urls import path
+from .views import (
+    ClientListView, ClientDetailView, ClientCreateView, ClientUpdateView, ClientDeleteView,
+    MessageListView, MessageDetailView, MessageCreateView, MessageUpdateView, MessageDeleteView,
+    MailingListView, MailingDetailView, MailingCreateView, MailingUpdateView, MailingDeleteView,
+    mailing_send  # <-- Импортируем новую функцию
+)
+
+app_name = 'mailing'
+
+urlpatterns = [
+    # ... (маршруты для клиентов и сообщений без изменений) ...
+    
+    path('mailings/', MailingListView.as_view(), name='mailing_list'),
+    path('mailings/<int:pk>/', MailingDetailView.as_view(), name='mailing_detail'),
+    path('mailings/create/', MailingCreateView.as_view(), name='mailing_create'),
+    path('mailings/<int:pk>/update/', MailingUpdateView.as_view(), name='mailing_update'),
+    path('mailings/<int:pk>/delete/', MailingDeleteView.as_view(), name='mailing_delete'),
+    
+    # --- Маршрут для отправки ---
+    path('mailings/<int:pk>/send/', mailing_send, name='mailing_send'),
+]
+
+mailing/management/commands/send_mailing.py.
+mailing/
+    management/
+        __init__.py
+        commands/
+            __init__.py
+            send_mailing.py
+
+Код команды:
+from django.core.management.base import BaseCommand, CommandError
+from mailing.models import Mailing
+
+class Command(BaseCommand):
+    help = 'Запускает указанную рассылку вручную'
+
+    def add_arguments(self, parser):
+        parser.add_argument('mailing_id', type=int, help='ID рассылки для отправки')
+
+    def handle(self, *args, **options):
+        mailing_id = options['mailing_id']
+        
+        try:
+            mailing = Mailing.objects.get(pk=mailing_id)
+        except Mailing.DoesNotExist:
+            raise CommandError(f'Рассылка с ID {mailing_id} не найдена.')
+
+        self.stdout.write(f'Попытка запуска рассылки #{mailing_id}...')
+        
+        success, errors = mailing.send()
+        
+        if success:
+            self.stdout.write(self.style.SUCCESS(f'Рассылка #{mailing_id} успешно отправлена!'))
+        else:
+            self.stdout.write(self.style.ERROR(f'Частичная ошибка в рассылке #{mailing_id}:'))
+            for err in errors:
+                self.stdout.write(f' - {err}')
+
+python manage.py send_mailing 1
+
+settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@mysite.com'
+
+settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'your_email@yandex.ru'          # твой email на Яндексе
+EMAIL_HOST_PASSWORD = 'ваш_пароль_для_приложения' # тот, что создали в шаге 1
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+
+
+Проверка работы
+python manage.py shell
+
+from django.core.mail import send_mail
+
+send_mail(
+    subject='Тест рассылки Django + Яндекс',
+    message='Это тестовое письмо, отправленное через Django и Яндекс SMTP.',
+    from_email='your_email@yandex.ru',  # тот же, что в EMAIL_HOST_USER
+    recipient_list=['test@example.com'],  # замени на свой тестовый ящик
+    fail_silently=False
+)
+
