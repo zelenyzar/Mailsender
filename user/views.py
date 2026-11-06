@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
@@ -111,13 +111,6 @@ def custom_login(request):
         form = CustomLoginForm()
 
     return render(request, 'user/login.html', {'form': form})
-
-
-@login_required
-def logout_view(request):
-    logout(request)
-    messages.info(request, 'Вы успешно вышли из системы.')
-    return redirect('mailing:dashboard')
 
 def password_reset_request(request):
     if request.method == 'POST':
