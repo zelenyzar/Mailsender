@@ -1,7 +1,4 @@
 import uuid
-from datetime import timedelta
-
-from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
@@ -13,7 +10,6 @@ from django.core.mail import send_mail
 from mailing.permissions import is_manager
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
-from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.tokens import default_token_generator
 
 from user.forms import UserRegisterForm, CustomLoginForm, CustomPasswordResetForm, CustomSetPasswordForm
