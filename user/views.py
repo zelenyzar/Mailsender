@@ -12,6 +12,7 @@ from django.template.loader import render_to_string
 from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
+from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.tokens import default_token_generator
 
 from user.forms import UserRegisterForm, CustomLoginForm, CustomPasswordResetForm, CustomSetPasswordForm
@@ -231,3 +232,13 @@ def toggle_user_active(request, user_id):
 
     messages.add_message(request, level, msg)
     return redirect('user:user_list')
+
+@login_required
+def user_list(request):
+    """Список всех пользователей. Доступен только менеджерам."""
+    if not is_manager(request.user):
+        messages.error(request, "У вас нет прав для просмотра списка пользователей.")
+        return redirect('mailing:dashboard')
+
+    users = User.objects.all().order_by('email')
+    return render(request, 'user/user_list.html', {'users': users})
