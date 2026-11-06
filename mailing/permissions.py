@@ -1,6 +1,5 @@
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import BasePermission
-from .permissions import is_manager
 
 User = get_user_model()
 
