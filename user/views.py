@@ -46,11 +46,11 @@ def register(request):
                 )
                 messages.success(request,
                                  'Регистрация успешна! Мы отправили письмо для подтверждения вашего email. Проверьте папку «Спам».')
-                return redirect('login')
+                return redirect('user:login')
             except Exception as e:
                 user.delete()
                 messages.error(request, f'Не удалось отправить письмо. Ошибка: {str(e)}')
-                return redirect('register')
+                return redirect('user:register')
     else:
         form = UserRegisterForm()
 
@@ -63,11 +63,11 @@ def email_verification(request, token):
 
         if user.is_active:
             messages.warning(request, 'Этот аккаунт уже подтвержден.')
-            return redirect('login')
+            return redirect('user:login')
 
         if user.token_expires_at and user.token_expires_at < timezone.now():
             messages.error(request, 'Срок действия ссылки истек. Пожалуйста, зарегистрируйтесь заново.')
-            return redirect('register')
+            return redirect('user:register')
 
         user.is_active = True
         user.verification_token = None
@@ -75,7 +75,7 @@ def email_verification(request, token):
         user.save()
 
         messages.success(request, 'Аккаунт успешно подтвержден! Теперь вы можете войти в систему.')
-        return redirect('login')
+        return redirect('user:login') 
 
     except Exception:
         messages.error(request, 'Неверная или устаревшая ссылка подтверждения.')
@@ -140,7 +140,7 @@ def password_reset_request(request):
                 messages.success(request,
                                  'Если такой пользователь существует, письмо со ссылкой на сброс пароля было отправлено.')
 
-            return redirect('login')
+            return redirect('user:login')
     else:
         form = CustomPasswordResetForm()
 
@@ -160,13 +160,13 @@ def password_reset_confirm(request, uidb64, token):
             if form.is_valid():
                 form.save()
                 messages.success(request, 'Пароль успешно изменен! Вы можете войти в систему с новым паролем.')
-                return redirect('login')
+                return redirect('user:login')
         else:
             form = CustomSetPasswordForm(user)
             return render(request, 'user/password_reset_confirm.html', {'form': form})
     else:
         messages.error(request, 'Ссылка для сброса пароля недействительна или устарела.')
-        return redirect('password_reset')
+        return redirect('user:password_reset')  
 
 
 def toggle_user_active(request, user_id):
