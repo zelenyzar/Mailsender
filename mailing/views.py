@@ -289,37 +289,63 @@ def statistics_report(request):
     if is_manager(user):
         mailings_qs = Mailing.objects.all()
         attempts_qs = MailingAttempt.objects.all()
+        scope_label = 'Общая статистика по всем пользователям'
     else:
         mailings_qs = Mailing.objects.filter(owner=user)
         attempts_qs = MailingAttempt.objects.filter(mailing__owner=user)
+        scope_label = 'Моя статистика'
 
     total_mailings = mailings_qs.count()
-    active_mailings = mailings_qs.filter(start_time__lte=now, end_time__gte=now).count()
-    completed_mailings = mailings_qs.filter(end_time__lt=now).count()
+    active_mailings = mailings_qs.filter(
+        status=Mailing.STATUS_RUNNING,
+        start_time__lte=now,
+        end_time__gte=now,
+    ).count()
+    completed_mailings = mailings_qs.filter(status=Mailing.STATUS_COMPLETED).count()
 
     stats = attempts_qs.aggregate(
         total_attempts=Count('id'),
-        success_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_SUCCESS)),
-        fail_attempts=Count('id', filter=Q(status=MailingAttempt.STATUS_FAIL))
+        messages_sent=Count('id', filter=Q(status=MailingAttempt.STATUS_SUCCESS)),
+        messages_failed=Count('id', filter=Q(status=MailingAttempt.STATUS_FAIL)),
+        unique_recipients=Count('client', distinct=True),
     )
 
     total = stats['total_attempts'] or 0
-    success = stats['success_attempts'] or 0
-
+    success = stats['messages_sent'] or 0
     success_rate = (success / total * 100) if total > 0 else 0.0
     fail_rate = 100.0 - success_rate
 
-    recent_errors = attempts_qs.filter(
-        status=MailingAttempt.STATUS_FAIL
-    ).select_related('mailing', 'client').order_by('-sent_at')[:10]
+    recent_errors = (
+        attempts_qs.filter(status=MailingAttempt.STATUS_FAIL)
+        .select_related('mailing', 'client')
+        .order_by('-sent_at')[:10]
+    )
+
+    users_stats = None
+    if is_manager(user):
+        users_stats = (
+            Mailing.objects
+            .values('owner__email')
+            .annotate(
+                mailings=Count('id', distinct=True),
+                total=Count('attempts'),
+                sent=Count('attempts', filter=Q(attempts__status=MailingAttempt.STATUS_SUCCESS)),
+                failed=Count('attempts', filter=Q(attempts__status=MailingAttempt.STATUS_FAIL)),
+            )
+            .order_by('-total')
+        )
 
     context = {
+        'scope_label': scope_label,
+        'is_manager': is_manager(user),
+
         'total_mailings': total_mailings,
         'active_mailings': active_mailings,
         'completed_mailings': completed_mailings,
 
         'stats': stats,
         'recent_errors': recent_errors,
+        'users_stats': users_stats,
 
         'success_rate': success_rate,
         'fail_rate': fail_rate,
