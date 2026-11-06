@@ -27,9 +27,10 @@
                         <i class="bi bi-shield-lock"></i> Администрирование
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="/admin/user/user/">👥 Список пользователей</a></li>
+                        <li><a class="dropdown-item" href="{% url 'user:user_list' %}">Пользователи системы</a></li>
+                        <li><a class="dropdown-item" href="/admin/user/user/">Список пользователей (админка)</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="/admin/">🛠 Панель Django (полная)</a></li>
+                        <li><a class="dropdown-item text-danger" href="/admin/">Панель Django (полная)</a></li>
                     </ul>
                 </li>
                 {% endif %}
