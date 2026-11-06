@@ -24,10 +24,10 @@
         <tr {% if not user_obj.is_active %}class="table-secondary"{% endif %}>
             <td>{{ user_obj.email }}</td>
             <td>
-                {% if user_obj.is_manager %}
-                    <span class="badge bg-primary">Менеджер</span>
+                {% if user_obj.is_staff %}
+                <span class="badge bg-primary">Менеджер</span>
                 {% else %}
-                    <span class="badge bg-secondary">Пользователь</span>
+                <span class="badge bg-secondary">Пользователь</span>
                 {% endif %}
             </td>
             <td>
