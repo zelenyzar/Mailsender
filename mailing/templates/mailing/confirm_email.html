@@ -1,0 +1,60 @@
+{% load static %}
+
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение регистрации</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border: 1px solid #ddd;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .content {
+            text-align: center;
+        }
+        .action {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .action a {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 0 5px;
+            background: #007bff;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Подтвердите ваш email</h1>
+        </div>
+        <div class="content">
+            <p>Здравствуйте!</p>
+            <p>Для завершения регистрации, пожалуйста, подтвердите ваш email. Для этого перейдите по ссылке:</p>
+            <p><a href="{{ base_url }}{% url 'user:verify' token %}">Перейти к подтверждению</a></p>
+            <p>Если вы не получили эту ссылку, проверьте папку «Спам».</p>
+        </div>
+        <div class="action">
+            <a href="{% url 'user:login' %}">Войти в систему</a>
+        </div>
+    </div>
+</body>
+</html>
