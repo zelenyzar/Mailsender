@@ -156,9 +156,8 @@ class MailingCreateView(LoginRequiredMixin, CreateView):
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        if not is_manager(self.request.user):
-            form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
-            form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
+        form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
+        form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
         return form
 
     def form_valid(self, form):
@@ -169,8 +168,8 @@ class MailingCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['messages_list'] = Message.objects.all()
-        context['clients_list'] = Client.objects.all()
+        context['messages_list'] = Message.objects.filter(owner=self.request.user)
+        context['clients_list'] = Client.objects.filter(owner=self.request.user)
         context['recipient_ids'] = []
         return context
 
@@ -181,9 +180,8 @@ class MailingUpdateView(OwnerCheckMixin, UpdateView):
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        if not is_manager(self.request.user):
-            form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
-            form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
+        form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
+        form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
         return form
 
     def form_valid(self, form):
@@ -193,8 +191,8 @@ class MailingUpdateView(OwnerCheckMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['messages_list'] = Message.objects.all()
-        context['clients_list'] = Client.objects.all()
+        context['messages_list'] = Message.objects.filter(owner=self.request.user)
+        context['clients_list'] = Client.objects.filter(owner=self.request.user)
 
         if self.object:
             context['recipient_ids'] = list(self.object.recipients.values_list('id', flat=True))
@@ -226,7 +224,7 @@ class MailingDeleteView(OwnerCheckMixin, DeleteView):
 def mailing_send(request, pk):
     mailing = get_object_or_404(Mailing, pk=pk)
 
-    if not is_manager(request.user) and mailing.owner_id != request.user.pk:
+    if mailing.owner_id != request.user.pk:
         return HttpResponseForbidden("Доступ запрещен")
 
     success, errors = mailing.send()
@@ -330,6 +328,7 @@ def statistics_report(request):
     return render(request, 'mailing/statistics_report.html', context)
 
 @login_required
+@require_POST
 def block_mailing(request, pk):
     if not is_manager(request.user):
         return HttpResponseForbidden("Доступ запрещен")
