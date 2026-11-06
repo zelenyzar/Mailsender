@@ -1,5 +1,6 @@
 from django.urls import path
 from mailing.apps import MailingConfig
+from mailing import views
 from .views import (
   ClientListView,
   ClientDetailView,
@@ -17,7 +18,9 @@ from .views import (
   MailingUpdateView,
   MailingDeleteView,
   mailing_send,
-  dashboard
+  block_mailing,
+  dashboard,
+  statistics_report,
 )
 
 app_name = MailingConfig.name
@@ -43,11 +46,12 @@ urlpatterns = [
   path('mailing/create/', MailingCreateView.as_view(), name='mailing_create'),
   path('mailing/<int:pk>/update/', MailingUpdateView.as_view(), name='mailing_update'),
   path('mailing/<int:pk>/delete/', MailingDeleteView.as_view(), name='mailing_delete'),
-  path('mailing/<int:pk>/send/', mailing_send),
+  path('mailing_send/<int:pk>/', views.mailing_send, name='mailing_send'),
+  path('mailing/<int:pk>/block/', block_mailing, name='block_mailing'),
 
-    # --- Dashboard ---
+  # --- Dashboard ---
   path('', dashboard, name='dashboard'),
 
-    # --- Statistics ---
+  # --- Statistics ---
   path('statistics/', statistics_report, name='statistics'),
 ]
