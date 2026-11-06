@@ -1,6 +1,6 @@
 from django import template
 
-from .permissions import is_manager
+from mailing.permissions import is_manager
 
 register = template.Library()
 
