@@ -37,13 +37,15 @@
                 </ul>
 
                 <hr>
+                {% if object.owner_id == user.pk %}
                 <form method="post" action="{% url 'mailing:mailing_send' object.pk %}">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-primary"
-                            {% if object.status == object.STATUS_COMPLETED %}disabled{% endif %}>
+                        {% if object.status == object.STATUS_COMPLETED %}disabled{% endif %}>
                         Отправить рассылку сейчас
                     </button>
                 </form>
+                {% endif %}
 
                 {% if user|is_manager %}
                 <form method="post" action="{% url 'mailing:block_mailing' object.pk %}" class="mt-2">
