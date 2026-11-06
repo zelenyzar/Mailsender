@@ -103,7 +103,7 @@ def email_verification(request, token):
 
     except Exception:
         messages.error(request, 'Неверная или устаревшая ссылка подтверждения.')
-        return redirect('mailing')
+        return redirect('mailing:dashboard')
 
 def custom_login(request):
     if request.user.is_authenticated:
@@ -175,7 +175,7 @@ def password_reset_request(request):
     else:
         form = CustomPasswordResetForm()
 
-    return render(request, 'user/password_reset.html', {'form': form})
+    return render(request, 'user/password_reset_form.html', {'form': form})
 
 
 def password_reset_confirm(request, uidb64, token):
