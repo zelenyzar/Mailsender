@@ -1,35 +1,11 @@
-<!-- python manage.py shell
-
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
-
-User = get_user_model()
-
-# 1. Создаем группу "manager", если её нет
-group, created = Group.objects.get_or_create(name='manager')
-
-# 2. Находим своего тестового пользователя
-user = User.objects.get(email='test@example.com') # <-- Вставь сюда свой email
-
-# 3. Добавляем его в группу
-user.groups.add(group)
-user.save()
-
-print(f"Пользователь {user.email} теперь менеджер!") -->
-
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Подключаем наш кастомный тег здесь -->
-    {% load user_tags %}
-    
+
     <title>{% block title %}Рассылки{% endblock %}</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Иконки Bootstrap -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
@@ -37,20 +13,15 @@ print(f"Пользователь {user.email} теперь менеджер!") -
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
     <div class="container">
         <a class="navbar-brand fw-bold" href="{% url 'mailing:dashboard' %}">Рассылки</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        
+
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
-                <!-- Основные пункты меню (видны всем авторизованным) -->
                 <li class="nav-item"><a class="nav-link" href="{% url 'mailing:client_list' %}">Получатели</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'mailing:message_list' %}">Сообщения</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'mailing:mailing_list' %}">Рассылки</a></li>
                 <li class="nav-item"><a class="nav-link text-warning" href="{% url 'mailing:statistics' %}"><i class="bi bi-graph-up"></i> Статистика</a></li>
 
-                <!-- === БЛОК МЕНЕДЖЕРА (ВИДЕН ТОЛЬКО ИМ) === -->
-                {% if user.is_authenticated and user|is_manager %}
+                {% if user.is_authenticated and user.is_staff %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-shield-lock"></i> Администрирование
@@ -58,14 +29,11 @@ print(f"Пользователь {user.email} теперь менеджер!") -
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="/admin/user/user/">👥 Список пользователей</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <!-- Ссылка на полную админку Django (если нужно) -->
                         <li><a class="dropdown-item text-danger" href="/admin/">🛠 Панель Django (полная)</a></li>
                     </ul>
                 </li>
                 {% endif %}
-                <!-- ========================================= -->
 
-                <!-- Блок авторизации -->
                 <li class="nav-item ms-3 d-flex align-items-center">
                     {% if user.is_authenticated %}
                         <span class="me-2 text-white fw-normal small">Привет, {{ user.email }}</span>
@@ -82,6 +50,7 @@ print(f"Пользователь {user.email} теперь менеджер!") -
         </div>
     </div>
 </nav>
+
 
 <div class="container">
     {% if messages %}
