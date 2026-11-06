@@ -10,6 +10,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.core.mail import send_mail
+from mailing.permissions import is_manager
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.decorators import user_passes_test
@@ -170,9 +171,6 @@ def password_reset_confirm(request, uidb64, token):
     else:
         messages.error(request, 'Ссылка для сброса пароля недействительна или устарела.')
         return redirect('password_reset')
-
-def is_manager(user):
-    return user.is_authenticated and user.is_staff
 
 
 def toggle_user_active(request, user_id):
