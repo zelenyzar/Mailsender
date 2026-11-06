@@ -1,26 +1,29 @@
+import logging
+
 from django.utils import timezone
-from .models import Mailing, MailingAttempt
 from django.core.mail import send_mail
 from django.conf import settings
+from django.core.cache import cache
+
+from .models import Mailing, MailingAttempt
+
+logger = logging.getLogger(__name__)
+
+
+def update_mailing_statuses():
+    Mailing.update_all_statuses()
+
 
 def run_mailing_task(mailing_id):
-    """
-    Эта функция будет выполняться в отдельном воркер-процессе.
-    Она НЕ должна возвращать HTML или делать redirect. Только логику.
-    """
     try:
-        # Получаем рассылку. Важно: используем select_related/prefetch_related, 
-        # чтобы не делать лишних запросов в цикле.
         mailing = Mailing.objects.prefetch_related('recipients', 'message').get(pk=mailing_id)
-        
+
         now = timezone.now()
-        
-        # Проверка условий запуска
+
         if mailing.status == Mailing.STATUS_BLOCKED:
             return {"status": "blocked", "message": "Рассылка заблокирована"}
-        
-        if not (mailing.start_time <= now <= mailing.end_time):
-            # Если время вышло, можно сразу пометить как завершенную
+
+        if now > mailing.end_time:
             mailing.status = Mailing.STATUS_COMPLETED
             mailing.save()
             return {"status": "completed", "message": "Время рассылки истекло"}
@@ -48,7 +51,7 @@ def run_mailing_task(mailing_id):
                     recipient_list=[client.email],
                     fail_silently=False,
                 )
-                
+
                 attempts_to_create.append(
                     MailingAttempt(
                         mailing=mailing,
@@ -74,19 +77,19 @@ def run_mailing_task(mailing_id):
                 )
                 error_count += 1
 
-        # Массово сохраняем попытки (быстрее)
         if attempts_to_create:
             MailingAttempt.objects.bulk_create(attempts_to_create)
 
-        # Обновляем статус рассылки
-        if error_count == 0:
-            mailing.status = Mailing.STATUS_COMPLETED
-        else:
-            # Можно оставить RUNNING, если планируешь досылать позже, 
-            # или поставить COMPLETED, если считаем, что попытка сделана
-            mailing.status = Mailing.STATUS_COMPLETED 
-            
+        mailing.status = Mailing.STATUS_COMPLETED
         mailing.save()
+
+        # Сбрасываем кэш, чтобы статистика обновилась
+        if mailing.owner_id:
+            cache.delete('statistics_global')
+            cache.delete(f'statistics_user_{mailing.owner_id}')
+            cache.delete('mailing_list_all')
+            cache.delete(f'mailing_list_{mailing.owner_id}')
+            cache.delete(f'dashboard_{mailing.owner_id}')
 
         return {
             "status": "done",
@@ -97,5 +100,6 @@ def run_mailing_task(mailing_id):
 
     except Mailing.DoesNotExist:
         return {"status": "error", "message": "Рассылка не найдена"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    except Exception:
+        logger.exception("Ошибка в задаче рассылки #%s", mailing_id)
+        return {"status": "error", "message": "Внутренняя ошибка"}
