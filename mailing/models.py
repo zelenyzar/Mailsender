@@ -121,6 +121,25 @@ class Mailing(models.Model):
         if self.start_time and self.end_time and self.start_time >= self.end_time:
             raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
 
+    def update_status(self):
+        """
+        Обновляет статус одной рассылки по текущему времени.
+        Вызывается перед отправкой и при просмотре детали рассылки.
+        """
+        now = timezone.now()
+
+        if self.status == self.STATUS_BLOCKED:
+            return self.status
+
+        if self.status == self.STATUS_CREATED and self.start_time <= now <= self.end_time:
+            self.status = self.STATUS_RUNNING
+            self.save(update_fields=['status'])
+        elif self.status == self.STATUS_RUNNING and now > self.end_time:
+            self.status = self.STATUS_COMPLETED
+            self.save(update_fields=['status'])
+
+        return self.status
+
 
     @classmethod
     def update_all_statuses(cls):
