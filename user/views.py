@@ -172,7 +172,7 @@ def password_reset_confirm(request, uidb64, token):
         return redirect('password_reset')
 
 def is_manager(user):
-    return getattr(user, 'is_manager', False)
+    return user.is_authenticated and user.is_staff
 
 
 def toggle_user_active(request, user_id):
