@@ -20,6 +20,7 @@ from .views import (
   block_mailing,
   dashboard,
   statistics_report,
+  start_mailing,
 )
 
 app_name = MailingConfig.name
@@ -45,10 +46,10 @@ urlpatterns = [
   path('mailing/create/', MailingCreateView.as_view(), name='mailing_create'),
   path('mailing/<int:pk>/update/', MailingUpdateView.as_view(), name='mailing_update'),
   path('mailing/<int:pk>/delete/', MailingDeleteView.as_view(), name='mailing_delete'),
-  path('mailing_send/<int:pk>/', views.mailing_send, name='mailing_send'),
+  path('mailing_send/<int:pk>/', mailing_send, name='mailing_send'),
   path('mailing/<int:pk>/block/', block_mailing, name='block_mailing'),
-  path('mailing/<int:pk>/start/', views.start_mailing, name='start_mailing'),
-
+  path('mailing/<int:pk>/start/', start_mailing, name='start_mailing'),
+  
   # --- Dashboard ---
   path('', dashboard, name='dashboard'),
 
