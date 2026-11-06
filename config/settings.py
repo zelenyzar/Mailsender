@@ -91,11 +91,11 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # --- НАСТРОЙКИ EMAIL (ИСПРАВЛЕНО) ---
 
-# ВАЖНО: Для разработки можно оставить console, но для проверки подтверждения почты 
-# нужно либо настроить SMTP, либо смотреть вывод в терминал. 
+# ВАЖНО: Для разработки можно оставить console, но для проверки подтверждения почты
+# нужно либо настроить SMTP, либо смотреть вывод в терминал.
 # Для продакшена обязательно раскомментируй строку ниже и закомментируй console.
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' 
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@example.com')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
@@ -141,3 +141,8 @@ CACHES = {
         "LOCATION": os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"),
     }
 }
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+]
