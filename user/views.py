@@ -59,28 +59,6 @@ def register(request):
 
     return render(request, 'user/register.html', {'form': form})
 
-def email_verification(request, token):
-    try:
-        user = User.objects.get(verification_token=token)
-        if user.is_active:
-            messages.warning(request, 'Этот аккаунт уже подтвержден.')
-            return redirect('login')
-
-        if user.token_expires_at < timezone.now():
-            messages.error(request, 'Срок действия ссылки истек. Пожалуйста, зарегистрируйтесь заново.')
-            return redirect('register')
-
-        user.is_active = True
-        user.verification_token = None
-        user.token_expires_at = None
-        user.save()
-
-        messages.success(request, 'Аккаунт успешно подтвержден! Теперь вы можете войти в систему.')
-        return redirect('login')
-    except ObjectDoesNotExist:
-        messages.error(request, 'Неверная или устаревшая ссылка подтверждения.')
-        return redirect('home')
-
 
 def email_verification(request, token):
     try:
@@ -211,7 +189,7 @@ def toggle_user_active(request, user_id):
     """
     if not is_manager(request.user):
         messages.error(request, "У вас нет прав для управления пользователями.")
-        return redirect('home')
+        return redirect('mailing:dashboard')
 
     target_user = get_object_or_404(User, pk=user_id)
 
