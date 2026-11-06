@@ -117,7 +117,7 @@ def custom_login(request):
 def logout_view(request):
     logout(request)
     messages.info(request, 'Вы успешно вышли из системы.')
-    return redirect('mailing')
+    return redirect('mailing:dashboard')
 
 def password_reset_request(request):
     if request.method == 'POST':
