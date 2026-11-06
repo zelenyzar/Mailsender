@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 import django_rq
 from django.core.cache import cache
 
-from .mixins import OwnerCheckMixin, OwnerOrManagerMixin
+from .mixins import OwnerCheckMixin, OwnerOrManagerMixin, is_manager
 from .tasks import run_mailing_task
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
@@ -305,9 +305,6 @@ def statistics_report(request):
     }
 
     return render(request, 'mailing/statistics_report.html', context)
-
-def is_manager(user):
-    return user.groups.filter(name='manager').exists()
 
 def block_mailing(request, pk):
     if not is_manager(request.user):
