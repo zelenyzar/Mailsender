@@ -16,4 +16,7 @@ urlpatterns = [
     # Сброс пароля
     path('password-reset/', views.password_reset_request, name='password_reset'),
     path('reset/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
+
+    # Список пользователей (для менеджеров)
+    path('users/', views.user_list, name='user_list'),
 ]
