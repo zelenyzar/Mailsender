@@ -19,4 +19,5 @@ urlpatterns = [
 
     # Список пользователей (для менеджеров)
     path('users/', views.user_list, name='user_list'),
+    path('users/<int:user_id>/toggle/', views.toggle_user_active, name='toggle_user_active'),
 ]
