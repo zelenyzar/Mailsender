@@ -58,7 +58,7 @@ class MailingAttempt(models.Model):
         (STATUS_FAIL, 'Не успешно'),
     ]
 
-    mailing = models.ForeignKey(Mailing, on_delete=models.CASCADE, related_name='attempts')
+    mailing = models.ForeignKey('mailing.Mailing', on_delete=models.CASCADE, related_name='attempts')
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     error_message = models.TextField(blank=True, null=True, default='', verbose_name='Текст ошибки')
