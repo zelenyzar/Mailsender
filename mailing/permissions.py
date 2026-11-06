@@ -1,10 +1,15 @@
+# mailing/permissions.py
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import BasePermission
 
 User = get_user_model()
 
 def is_manager(user: User) -> bool:
-    return user.is_authenticated and user.is_staff
+    return bool(
+        user
+        and user.is_authenticated
+        and user.groups.filter(name='manager').exists()
+    )
 
 class IsManagerPermission(BasePermission):
     message = "Требуется роль менеджера."
