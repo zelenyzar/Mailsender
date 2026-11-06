@@ -120,7 +120,7 @@ class MailingListView(OwnerOrManagerMixin, ListView):
 
     def get_queryset(self):
         Mailing.update_all_statuses()
-        return super().get_queryset()
+        return super().get_queryset().select_related('message', 'owner')
 
 
 class MailingDetailView(OwnerOrManagerMixin, DetailView):
