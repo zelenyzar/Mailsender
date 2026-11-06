@@ -31,7 +31,7 @@ def register(request):
             user.save()
 
             subject = 'Подтверждение регистрации в системе рассылок'
-            message = render_to_string('user/email_verification.html', {
+            message = render_to_string('mailing/confirm_email.html', {
                 'user': user,
                 'token': token,
                 'base_url': settings.BASE_URL,
