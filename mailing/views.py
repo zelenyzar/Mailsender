@@ -154,6 +154,13 @@ class MailingCreateView(LoginRequiredMixin, CreateView):
     model = Mailing
     form_class = MailingForm
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not is_manager(self.request.user):
+            form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
+            form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
+        return form
+
     def form_valid(self, form):
         form.instance.owner = self.request.user
         response = super().form_valid(form)
@@ -171,6 +178,13 @@ class MailingCreateView(LoginRequiredMixin, CreateView):
 class MailingUpdateView(OwnerCheckMixin, UpdateView):
     model = Mailing
     form_class = MailingForm
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not is_manager(self.request.user):
+            form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
+            form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
+        return form
 
     def form_valid(self, form):
         response = super().form_valid(form)
