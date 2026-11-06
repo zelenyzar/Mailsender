@@ -169,6 +169,7 @@ def password_reset_confirm(request, uidb64, token):
         return redirect('user:password_reset')  
 
 
+@login_required
 def toggle_user_active(request, user_id):
     """
     Переключает статус is_active у пользователя.
