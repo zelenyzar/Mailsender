@@ -238,22 +238,30 @@ def dashboard(request):
     Mailing.update_all_statuses()
     now = timezone.now()
 
+    # Менеджер видит всю статистику, обычный пользователь — только свою
+    if is_manager(request.user):
+        mailings_qs = Mailing.objects.all()
+        clients_qs = Client.objects.all()
+    else:
+        mailings_qs = Mailing.objects.filter(owner=request.user)
+        clients_qs = Client.objects.filter(owner=request.user)
+
     context = cache.get_or_set(
         f'dashboard_{request.user.pk}',
         lambda: {
-            'total_mailings': Mailing.objects.count(),
-            'unique_recipients': Client.objects.count(),
-            'active_mailings': Mailing.objects.filter(
+            'total_mailings': mailings_qs.count(),
+            'unique_recipients': clients_qs.count(),
+            'active_mailings': mailings_qs.filter(
                 status=Mailing.STATUS_RUNNING,
                 start_time__lte=now,
                 end_time__gte=now
             ).count(),
         },
-        timeout=60,  # раньше было 60 * 5
+        timeout=60,
     )
 
     context['last_mailings'] = (
-        Mailing.objects
+        mailings_qs
         .select_related('message')
         .order_by('-start_time')[:5]
     )
