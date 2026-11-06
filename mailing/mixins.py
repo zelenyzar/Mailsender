@@ -1,15 +1,7 @@
-from django.http import HttpResponseForbidden
-from django.contrib.auth import get_user_model
+# mailing/mixins.py
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
-User = get_user_model()
-
-
-def is_manager(user):
-    return bool(
-        user
-        and user.is_authenticated
-        and user.groups.filter(name='manager').exists()
-    )
+from .permissions import is_manager
 
 
 class OwnerOrManagerMixin(LoginRequiredMixin):
