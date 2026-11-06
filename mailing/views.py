@@ -73,11 +73,11 @@ class ClientDeleteView(OwnerCheckMixin, DeleteView):
 
 
 # --- Message ---
-class MessageListView(LoginRequiredMixin, ListView):
+class MessageListView(OwnerOrManagerMixin, ListView):
     model = Message
 
 
-class MessageDetailView(LoginRequiredMixin, DetailView):
+class MessageDetailView(OwnerOrManagerMixin, DetailView):
     model = Message
 
 
@@ -91,13 +91,13 @@ class MessageCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class MessageUpdateView(UpdateView):
+class MessageUpdateView(OwnerCheckMixin, UpdateView):
     model = Message
     form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
 
 
-class MessageDeleteView(DeleteView):
+class MessageDeleteView(OwnerCheckMixin, DeleteView):
     model = Message
     template_name = 'mailing/includes/confirm_delete.html'
     success_url = reverse_lazy('mailing:message_list')
