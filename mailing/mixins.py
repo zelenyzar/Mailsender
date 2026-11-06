@@ -18,7 +18,5 @@ class OwnerCheckMixin(LoginRequiredMixin, UserPassesTestMixin):
     """Для update/delete: разрешено только владельцу или менеджеру."""
 
     def test_func(self):
-        if is_manager(self.request.user):
-            return True
         obj = self.get_object()
         return obj.owner_id == self.request.user.pk

@@ -42,13 +42,15 @@
                 <a href="{% url 'mailing:mailing_detail' mailing.pk %}" class="btn btn-sm btn-outline-primary me-1">
                     <i class="bi bi-eye"></i>
                 </a>
+                {% if mailing.owner_id == user.pk %}
                 <a href="{% url 'mailing:mailing_update' mailing.pk %}" class="btn btn-sm btn-outline-secondary me-1">
                     <i class="bi bi-pencil"></i>
                 </a>
                 <a href="{% url 'mailing:mailing_delete' mailing.pk %}" class="btn btn-sm btn-outline-danger me-1">
                     <i class="bi bi-trash"></i>
                 </a>
-                {% if user|is_manager %}
+                {% endif %}
+                {% if user|is_manager and mailing.status != mailing.STATUS_COMPLETED %}
                 <form action="{% url 'mailing:block_mailing' mailing.pk %}" method="post" class="d-inline"
                       onsubmit="return confirm('Заблокировать рассылку #{{ mailing.pk }}?');">
                     {% csrf_token %}

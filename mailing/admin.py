@@ -1,9 +1,24 @@
 from django.contrib import admin
+
 from .models import Client, Message, Mailing, MailingAttempt
 
 
+class OwnerFilterAdmin(admin.ModelAdmin):
+    """Базовый админ-класс: менеджер видит только свои записи,
+    удалять чужие может только суперпользователь."""
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(owner=request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
 @admin.register(Client)
-class ClientAdmin(admin.ModelAdmin):
+class ClientAdmin(OwnerFilterAdmin):
     list_display = ('email', 'full_name', 'owner_display')
     search_fields = ('email', 'full_name')
 
@@ -23,7 +38,7 @@ class ClientAdmin(admin.ModelAdmin):
 
 
 @admin.register(Message)
-class MessageAdmin(admin.ModelAdmin):
+class MessageAdmin(OwnerFilterAdmin):
     list_display = ('subject', 'owner_display')
     search_fields = ('subject',)
 
@@ -39,7 +54,7 @@ class MessageAdmin(admin.ModelAdmin):
 
 
 @admin.register(Mailing)
-class MailingAdmin(admin.ModelAdmin):
+class MailingAdmin(OwnerFilterAdmin):
     list_display = ('pk', 'status', 'start_time', 'end_time', 'owner_display')
     list_filter = ('status',)
     readonly_fields = ('status',)
@@ -56,7 +71,7 @@ class MailingAdmin(admin.ModelAdmin):
 
 
 @admin.register(MailingAttempt)
-class MailingAttemptAdmin(admin.ModelAdmin):
+class MailingAttemptAdmin(OwnerFilterAdmin):
     list_display = ('mailing', 'client', 'status', 'sent_at', 'owner_display')
     list_filter = ('status', 'mailing')
     search_fields = ('client__email', 'error_message')
