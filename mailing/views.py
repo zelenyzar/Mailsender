@@ -12,7 +12,8 @@ from django.views.decorators.http import require_POST
 import django_rq
 from django.core.cache import cache
 
-from .mixins import OwnerCheckMixin, OwnerOrManagerMixin, is_manager
+from .mixins import OwnerCheckMixin, OwnerOrManagerMixin
+from .permissions import is_manager
 from .tasks import run_mailing_task
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
@@ -210,25 +211,25 @@ class MailingDeleteView(OwnerCheckMixin, DeleteView):
 @require_POST
 def mailing_send(request, pk):
     mailing = get_object_or_404(Mailing, pk=pk)
-    if request.method == 'POST':
-        success, errors = mailing.send()
-        mailing.update_status()
 
-        cache.delete('statistics_global')
-        if mailing.owner_id:
-            cache.delete(f'statistics_user_{mailing.owner_id}')
-        cache.delete('mailing_list_all')
-        if mailing.owner_id:
-            cache.delete(f'mailing_list_{mailing.owner_id}')
+    if not is_manager(request.user) and mailing.owner_id != request.user.pk:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    success, errors = mailing.send()
+    mailing.update_status()
+
+    cache.delete('statistics_global')
+    if mailing.owner_id:
+        cache.delete(f'statistics_user_{mailing.owner_id}')
+        cache.delete(f'mailing_list_{mailing.owner_id}')
         cache.delete(f'dashboard_{mailing.owner_id}')
+    cache.delete('mailing_list_all')
 
-        if success:
-            messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
-            return redirect('mailing:mailing_detail', pk=mailing.pk)
-        else:
-            error_text = '\n'.join(errors)
-            messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
-            return redirect('mailing:mailing_detail', pk=mailing.pk)
+    if success:
+        messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
+    else:
+        error_text = '\n'.join(errors)
+        messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
     return redirect('mailing:mailing_detail', pk=mailing.pk)
 
 
@@ -314,6 +315,7 @@ def statistics_report(request):
 
     return render(request, 'mailing/statistics_report.html', context)
 
+@login_required
 def block_mailing(request, pk):
     if not is_manager(request.user):
         return HttpResponseForbidden("Доступ запрещен")
