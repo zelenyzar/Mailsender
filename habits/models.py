@@ -9,10 +9,9 @@ class Habit(models.Model):
     """Модель «Привычка»."""
 
     user = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="habits",
-        verbose_name="Создатель",
+        related_name='habits'
     )
 
     place = models.CharField(
