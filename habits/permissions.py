@@ -1,8 +1,8 @@
 from rest_framework import permissions
 
 
-class IsOwnerOrPublic(permissions.BasePermission):
+class IsOwner(permissions.BasePermission):
+    """Объект доступен, только если его создатель — текущий пользователь."""
+
     def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
-            return True
         return obj.user == request.user
