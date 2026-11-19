@@ -30,6 +30,11 @@ class HabitSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["user", "created_at", "updated_at"]
 
+    def create(self, validated_data):
+        # Берём пользователя из контекста (из request), а не из JSON
+        validated_data["user"] = self.context["request"].user
+        return super().create(validated_data)
+
     def validate(self, attrs):
         # Проверка при создании/обновлении (DRF)
         is_pleasant = attrs.get("is_pleasant", self.instance.is_pleasant if self.instance else False)
