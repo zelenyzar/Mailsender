@@ -83,30 +83,48 @@ class Habit(models.Model):
         verbose_name_plural = "Привычки"
 
     def __str__(self):
-        return f"{self.user.username}: «{self.action[:40]}…» ({self.get_periodicity_display()})"
+        return f"{self.user.username}: «{self.action[:40]}…»"
+
+    def _strip_reward(self, value):
+        return value.strip() if isinstance(value, str) else ""
 
     def clean(self):
         super().clean()
 
-        # Правило: полезная привычка ≤ 2 минут
-        if not self.is_pleasant and self.duration_minutes > 2:
+        # 2. Время ≤ 120 с = 2 мин
+        if self.duration_minutes > 2:
             raise ValidationError(
-                {"duration_minutes": "Полезная привычка не должна занимать больше 2 минут."}
+                {"duration_minutes": "Время выполнения не должно превышать 120 секунд (2 минуты)."}
             )
 
-        # Приятная привычка — это вознаграждение, у неё не должно быть связанной привычки
-        if self.is_pleasant and self.related_habit is not None:
-            raise ValidationError(
-                {"related_habit": "Приятная привычка не может иметь поле «Связанная привычка»."}
-            )
-
-        # Опционально: если указана связанная привычка, она должна быть приятной
-        if not self.is_pleasant and self.related_habit is not None:
-            if not self.related_habit.is_pleasant:
+        # 4. Приятная привычка: без вознаграждения и без связанной привычки
+        if self.is_pleasant:
+            if self._strip_reward(self.reward):
                 raise ValidationError(
-                    {"related_habit": "В поле «Связанная привычка» можно указывать только приятные привычки."}
+                    {"reward": "У приятной привычки не может быть вознаграждения."}
+                )
+            if self.related_habit is not None:
+                raise ValidationError(
+                    {"related_habit": "У приятной привычки не может быть связанной привычки."}
                 )
 
-    def full_clean(self, exclude=None, validate_unique=True):
-        self.clean()
-        super().full_clean(exclude=exclude, validate_unique=validate_unique)
+        # Для полезных привычек
+        if not self.is_pleasant:
+            # 3. Связанная привычка должна быть приятной
+            if self.related_habit is not None and not self.related_habit.is_pleasant:
+                raise ValidationError(
+                    {"related_habit": "В связанные привычки могут попадать только приятные привычки."}
+                )
+
+            # 1. XOR: не одновременно related_habit и reward
+            if self.related_habit is not None and self._strip_reward(self.reward):
+                raise ValidationError(
+                    {
+                        "related_habit": "Нельзя указывать и связанную привычку, и вознаграждение одновременно. Выберите что-то одно.",
+                        "reward": "Нельзя указывать и связанную привычку, и вознаграждение одновременно. Выберите что-то одно.",
+                    }
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
