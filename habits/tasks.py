@@ -55,3 +55,9 @@ def check_habits():
     sent = 0
 
     for habit in Habit.objects.select_related("user__profile"):
+
+
+После замены файла перезапустите worker, чтобы код подхватился:
+
+bash
+celery -A config worker -l INFO
